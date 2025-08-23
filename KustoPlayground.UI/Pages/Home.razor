@@ -1,0 +1,35 @@
+﻿@page "/"
+
+@using KustoPlayground.Core
+@inject KustoExecutor KustoExecutor
+
+<h3>Kusto Processor</h3>
+
+<textarea @bind="KqlQuery" rows="10" cols="60"></textarea>
+<br />
+<button @onclick="ExecuteKusto">Process Kusto Query</button>
+
+@if (Results != null && Results.Any())
+{
+    <h4>Results</h4>
+    <ul>
+        @foreach (var line in Results)
+        {
+            <li>@line</li>
+        }
+    </ul>
+}
+
+@code {
+    private string KqlQuery { get; set; } = @"StormEvents
+    | where State == 'FLORIDA' and DamageProperty > 10000
+    | project StartTime, EventType, DamageProperty
+    | take 10
+";
+    private List<string> Results { get; set; } = new();
+
+    private void ExecuteKusto()
+    {
+        Results = KustoExecutor.Execute(KqlQuery);
+    }
+}
