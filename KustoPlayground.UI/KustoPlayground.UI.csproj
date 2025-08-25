@@ -7,10 +7,6 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <BlazorWebAssemblyEnableLinking>false</BlazorWebAssemblyEnableLinking>
-    </PropertyGroup>
-
-    <PropertyGroup>
         <RunAOTCompilation>true</RunAOTCompilation>
     </PropertyGroup>
 

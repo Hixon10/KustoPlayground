@@ -30,6 +30,10 @@
 
     private void ExecuteKusto()
     {
-        Results = KustoExecutor.Execute(KqlQuery);
+        var executeResults = KustoExecutor.Execute(KqlQuery);
+        Results = executeResults
+            .Select(row => 
+                string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")))
+            .ToList();
     }
 }

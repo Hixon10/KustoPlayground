@@ -16,11 +16,21 @@ public class KustoExecutorTests
             | project StartTime, EventType, DamageProperty
             | take 10
         ";
-        List<string> results = kustoExecutor.Execute(query);
-        List<string> expected =
+        List<IReadOnlyDictionary<string, object?>> results = kustoExecutor.Execute(query);
+        List<IReadOnlyDictionary<string, object?>> expected =
         [
-            "StartTime=8/23/2025 6:20:00 AM, EventType=Hurricane, DamageProperty=20000"
+            new Dictionary<string, object?>
+            {
+                { "DamageProperty", 20000 },
+                { "StartTime", new DateTime(2025, 8, 23, 6, 20, 0) },
+                { "EventType", "Hurricane" },
+            }.AsReadOnly(),
         ];
-        Assert.That(results, Is.EqualTo(expected)); 
+        
+        Assert.That(results, Has.Count.EqualTo(expected.Count));
+        for (var index = 0; index < results.Count; index++)
+        {
+            Assert.That(results[index], Is.EquivalentTo(expected[index]));
+        }
     }
 }

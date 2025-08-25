@@ -1,43 +1,55 @@
-using System.Reflection;
 using Kusto.Language;
 using Kusto.Language.Syntax;
 
 namespace KustoPlayground.Core;
 
-public class StormEvent
-{
-    public DateTime StartTime { get; set; }
-    public required string State { get; set; }
-    public required string EventType { get; set; }
-    public double DamageProperty { get; set; }
-}
-
 public class KustoExecutor
 {
-    private readonly Dictionary<string, object> _tables = new();
+    private readonly Dictionary<string, Table> _tables = new();
 
     public KustoExecutor()
     {
-        var events = new List<StormEvent>
-        {
-            new StormEvent
-                { StartTime = new DateTime(2025, 8, 23, 6, 20, 0), State = "FLORIDA", EventType = "Hurricane", DamageProperty = 20000 },
-            new StormEvent
-                { StartTime = new DateTime(2023, 3, 28, 10, 30, 0), State = "TEXAS", EventType = "Flood", DamageProperty = 5000 },
-            new StormEvent
-                { StartTime = new DateTime(2024, 6, 1, 16, 50, 30), State = "FLORIDA", EventType = "Tornado", DamageProperty = 5000 },
-        };
-
-        RegisterTable("StormEvents", events);
+        RegisterTable();
     }
 
-    public void RegisterTable<T>(string name, IEnumerable<T> data)
+    public void RegisterTable()
     {
-        _tables[name] = data;
+        var startTimeCol = new Column<DateTime>("StartTime", isNullable: false);
+        var stateCol = new Column<string>("State", isNullable: false);
+        var eventTypeCol = new Column<string>("EventType", isNullable: false);
+        var damagePropertyCol = new Column<int>("DamageProperty", isNullable: false);
+
+        var stormEvents = new Table("StormEvents",
+            new ColumnBase[] { startTimeCol, stateCol, eventTypeCol, damagePropertyCol });
+
+        stormEvents.AddRow(new Dictionary<string, object?>
+        {
+            ["StartTime"] = new DateTime(2025, 8, 23, 6, 20, 0),
+            ["State"] = "FLORIDA",
+            ["EventType"] = "Hurricane",
+            ["DamageProperty"] = 20000,
+        });
+
+        stormEvents.AddRow(new Dictionary<string, object?>
+        {
+            ["StartTime"] = new DateTime(2023, 3, 28, 10, 30, 0),
+            ["State"] = "TEXAS",
+            ["EventType"] = "Flood",
+            ["DamageProperty"] = 5000,
+        });
+
+        stormEvents.AddRow(new Dictionary<string, object?>
+        {
+            ["StartTime"] = new DateTime(2024, 6, 1, 16, 50, 30),
+            ["State"] = "FLORIDA",
+            ["EventType"] = "Tornado",
+            ["DamageProperty"] = 5000,
+        });
+
+        _tables[stormEvents.Name] = stormEvents;
     }
 
-
-    public List<string> Execute(string query)
+    public List<IReadOnlyDictionary<string, object?>> Execute(string query)
     {
         var code = KustoCode.Parse(query);
 
@@ -46,7 +58,6 @@ public class KustoExecutor
             throw new InvalidOperationException("Expected a QueryBlock at root.");
         }
 
-        //
         // Statements is a SyntaxList<SeparatedElement<Statement>>
         var firstStmt = block.Statements[0].Element;
 
@@ -55,33 +66,25 @@ public class KustoExecutor
             throw new InvalidOperationException("Expected ExpressionStatement.");
         }
 
-// This is your query AST root
-        var rootExpr = exprStmt.Expression;
-        //
+        IEnumerable<Dictionary<string, object?>> executeExpression = ExecuteExpression(exprStmt.Expression);
+        List<IReadOnlyDictionary<string, object?>> results = new List<IReadOnlyDictionary<string, object?>>();
 
-        IEnumerable<object> executeExpression = ExecuteExpression(rootExpr);
-        List<string> results = new List<string>();
-
-        foreach (var row in executeExpression)
+        foreach (Dictionary<string, object?> row in executeExpression)
         {
-            string str = string.Join(", ",
-                ((Dictionary<string, object>)row).Select(kv => $"{kv.Key}={kv.Value}"));
-            results.Add(str);
+            results.Add(row.AsReadOnly());
         }
-
-        ;
 
         return results;
     }
 
-    private IEnumerable<object> ExecuteExpression(Expression expr)
+    private IEnumerable<Dictionary<string, object?>> ExecuteExpression(Expression expr)
     {
         switch (expr)
         {
             case NameReference nameRef:
-                if (_tables.TryGetValue(nameRef.Name.SimpleName, out var table))
+                if (_tables.TryGetValue(nameRef.Name.SimpleName, out Table? table))
                 {
-                    return (IEnumerable<object>)table;
+                    return table.Rows.Select(row => new Dictionary<string, object?>(row._values));
                 }
 
                 throw new InvalidOperationException($"Unknown table: {nameRef.Name}");
@@ -95,7 +98,9 @@ public class KustoExecutor
         }
     }
 
-    private IEnumerable<object> ApplyOperator(IEnumerable<object> source, QueryOperator op)
+    private IEnumerable<Dictionary<string, object?>> ApplyOperator(
+        IEnumerable<Dictionary<string, object?>> source,
+        QueryOperator op)
     {
         switch (op)
         {
@@ -113,9 +118,11 @@ public class KustoExecutor
         }
     }
 
-    private IEnumerable<object> ApplyFilter(IEnumerable<object> source, FilterOperator filter)
+    private IEnumerable<Dictionary<string, object?>> ApplyFilter(
+        IEnumerable<Dictionary<string, object?>> source,
+        FilterOperator filter)
     {
-        bool Predicate(object row)
+        bool Predicate(Dictionary<string, object?> row)
         {
             bool result = EvaluateCondition(filter.Condition, row);
             return result;
@@ -124,7 +131,7 @@ public class KustoExecutor
         return source.Where(Predicate);
     }
 
-    private bool EvaluateCondition(Expression expr, object row)
+    private bool EvaluateCondition(Expression expr, Dictionary<string, object?> row)
     {
         switch (expr)
         {
@@ -143,7 +150,7 @@ public class KustoExecutor
         }
     }
 
-    private bool EvaluateBinary(BinaryExpression be, object row)
+    private bool EvaluateBinary(BinaryExpression be, Dictionary<string, object?> row)
     {
         switch (be.Kind)
         {
@@ -186,7 +193,7 @@ public class KustoExecutor
         }
     }
 
-    private object? EvalOperand(Expression expr, object row)
+    private object? EvalOperand(Expression expr, Dictionary<string, object?> row)
     {
         switch (expr)
         {
@@ -201,41 +208,45 @@ public class KustoExecutor
         }
     }
 
-    private IEnumerable<object> ApplyProject(IEnumerable<object> source, ProjectOperator project)
+    private IEnumerable<Dictionary<string, object?>> ApplyProject(IEnumerable<Dictionary<string, object?>> source,
+        ProjectOperator project)
     {
         // unwrap SeparatedElement<Expression> → Expression
-        var exprs = project.Expressions.Select(se => se.Element).ToList();
+        var exprs = project.Expressions.Select(se => se.Element);
 
         // often NameReference, but can also be SimpleNamedExpression (alias = expr)
-        var props = exprs.Select(e =>
+        IEnumerable<(string Alias, NameReference Expr)> props = exprs.Select(e =>
         {
             if (e is NameReference nr)
             {
-                return (Alias: nr.Name.SimpleName, Expr: (Expression)nr);
+                return (Alias: nr.Name.SimpleName, Expr: (NameReference)nr);
             }
 
             if (e is SimpleNamedExpression sne && sne.Expression is NameReference inner)
             {
-                return (Alias: sne.Name.SimpleName, Expr: (Expression)inner);
+                return (Alias: sne.Name.SimpleName, Expr: (NameReference)inner);
             }
 
             throw new NotSupportedException($"Unsupported project expression: {e.GetType().Name}");
-        }).ToList();
+        });
 
         return source.Select(row =>
         {
             var dict = new Dictionary<string, object?>();
-            foreach (var p in props)
+            foreach ((string Alias, NameReference Expr) p in props)
             {
                 if (p.Expr is NameReference nr)
+                {
                     dict[p.Alias] = GetPropValue(row, nr.Name.SimpleName);
+                }
             }
 
             return dict;
         });
     }
 
-    private IEnumerable<object> ApplyTake(IEnumerable<object> source, TakeOperator take)
+    private IEnumerable<Dictionary<string, object?>> ApplyTake(IEnumerable<Dictionary<string, object?>> source,
+        TakeOperator take)
     {
         if (take.Expression is LiteralExpression lit)
         {
@@ -246,12 +257,9 @@ public class KustoExecutor
         throw new NotSupportedException("Take must be a literal integer.");
     }
 
-    private static object? GetPropValue(object obj, string name)
+    private static object? GetPropValue(Dictionary<string, object?> row, string name)
     {
-        Type type = obj.GetType();
-        PropertyInfo? propertyInfo = type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
-        object? propValue = propertyInfo?.GetValue(obj);
-        return propValue;
+        return row.GetValueOrDefault(name);
     }
 
     private static object ParseLiteral(LiteralExpression lit)
