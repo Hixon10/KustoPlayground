@@ -31,3 +31,5 @@ jobs:
       - name: Run tests
         run: dotnet test KustoPlayground.sln --configuration Release --no-build --verbosity normal
 
+      - name: Run Publish
+        run: dotnet publish --configuration Release
