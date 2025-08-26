@@ -3,6 +3,23 @@
 @using KustoPlayground.Core
 @inject KustoExecutor KustoExecutor
 
+<h3>Add Kusto table from CSV</h3>
+
+<textarea @bind="CsvText" rows="10" cols="60" placeholder="Paste CSV header and rows here"></textarea>
+<br />
+<br />
+<input @bind="CsvTableName" placeholder="Table name (e.g., MyTable)" />
+<br />
+<br />
+<button @onclick="ProcessCsv">Add Table</button>
+
+@if (CsvAdded)
+{
+    <p><em>CSV table "@CsvTableName" added successfully.</em></p>
+}
+
+<hr />
+
 <h3>Kusto Processor</h3>
 
 <textarea @bind="KqlQuery" rows="10" cols="60"></textarea>
@@ -21,6 +38,16 @@
 }
 
 @code {
+
+    private string CsvText { get; set; } = @"DamageProperty,StartTime,State,EventType
+20000,8/23/2025 6:20:00 AM,FLORIDA,Hurricane
+5000,3/28/2023 10:30:00 AM,TEXAS,Flood
+5000,6/1/2024 4:50:30 PM,FLORIDA,Tornado
+";
+    
+    private string CsvTableName { get; set; } = "StormEvents";
+    private bool CsvAdded { get; set; }
+    
     private string KqlQuery { get; set; } = @"StormEvents
     | where State == 'FLORIDA' and DamageProperty > 10000
     | project StartTime, EventType, DamageProperty
@@ -28,6 +55,35 @@
 ";
     private List<string> Results { get; set; } = new();
 
+    private void ProcessCsv()
+    {
+        if (string.IsNullOrWhiteSpace(CsvText) || string.IsNullOrWhiteSpace(CsvTableName))
+        {
+            return;
+        }
+
+        var lines = CsvText.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .ToList();
+
+        if (lines.Count < 2)
+        {
+            return;
+        }
+
+        var headers = lines[0].Split(',').Select(h => h.Trim()).ToList();
+
+        var rows = lines.Skip(1)
+            .Select(line => line.Split(',')
+                .Select((val, idx) => new KeyValuePair<string, object?>(headers[idx], val.Trim()))
+                .ToDictionary(kv => kv.Key, kv => kv.Value))
+            .ToList();
+
+        Table newTable = TableBuilderFromCsv.Build(CsvTableName, headers, rows);
+        KustoExecutor.RegisterTable(newTable);
+        CsvAdded = true;
+    }
+    
     private void ExecuteKusto()
     {
         var executeResults = KustoExecutor.Execute(KqlQuery);

@@ -1,11 +1,11 @@
 {
   "mainAssemblyName": "KustoPlayground.UI",
   "resources": {
-    "hash": "sha256-pUkYmM8wQfQ3kWRqffSP4pjjQ9pG6A32D6Om0MnPscI=",
+    "hash": "sha256-lKUUYmDX8eFTPNSpQQqihFpuNJBLrv9zH42BxxHRuUY=",
     "fingerprinting": {
       "Kusto.Language.1lq9bred0o.wasm": "Kusto.Language.wasm",
-      "KustoPlayground.Core.fha7m7439w.wasm": "KustoPlayground.Core.wasm",
-      "KustoPlayground.UI.2cevov2hj0.wasm": "KustoPlayground.UI.wasm",
+      "KustoPlayground.Core.ie2lf3wf51.wasm": "KustoPlayground.Core.wasm",
+      "KustoPlayground.UI.hiazuto90u.wasm": "KustoPlayground.UI.wasm",
       "Microsoft.AspNetCore.Components.6fyvk473zf.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.qwof7d2vrb.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
       "Microsoft.AspNetCore.Components.WebAssembly.h2uwilejp5.wasm": "Microsoft.AspNetCore.Components.WebAssembly.wasm",
@@ -39,7 +39,7 @@
       "System.Text.RegularExpressions.h2mpndpv4w.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.ggshvlobkn.wasm": "System.Threading.wasm",
       "dotnet.native.f3to4wnyrm.js": "dotnet.native.js",
-      "dotnet.native.mbilad4u3x.wasm": "dotnet.native.wasm",
+      "dotnet.native.e9avjfye2z.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.ew19f13umk.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -53,7 +53,7 @@
       "dotnet.runtime.ew19f13umk.js": "sha256-Isv/63htfX73xgn3/2cZMtk4S8xBcbmlXRgJMDv4mhI="
     },
     "wasmNative": {
-      "dotnet.native.mbilad4u3x.wasm": "sha256-Aq5YOvjCYAsM833zVCezrJw+KjLgzCHuHul4iOsQzco="
+      "dotnet.native.e9avjfye2z.wasm": "sha256-TovN3NEfD4S5Lf9wq7BGCK2Y/NH3nEuu7rYN/db82H0="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -62,8 +62,8 @@
     },
     "coreAssembly": {
       "Kusto.Language.1lq9bred0o.wasm": "sha256-K7pT/BwOQDWHnO7ZBm6ExrT6h8FY81gTT9Ga1b4GsSg=",
-      "KustoPlayground.Core.fha7m7439w.wasm": "sha256-LX1cDToGQKyVFpeaeOqyhOi8kPKuxHeq63rQBTNvYB8=",
-      "KustoPlayground.UI.2cevov2hj0.wasm": "sha256-rlGFUEx0DIKU0S5nE9KWEMmPm6FUHYoff6IkqMTYxMA=",
+      "KustoPlayground.Core.ie2lf3wf51.wasm": "sha256-ahogBHyVRzQMgKUhcDHxQ8QYrVuUfPN2tDiNAD8hzhw=",
+      "KustoPlayground.UI.hiazuto90u.wasm": "sha256-+VFQUheICNVv05TnmlaA/jvP6dCqkb9WN3Rrg69yL4I=",
       "Microsoft.AspNetCore.Components.6fyvk473zf.wasm": "sha256-AhTFrToeGgsjr4jcsu4nbuD3BT5yW/1z0rMGwkMHXeo=",
       "Microsoft.AspNetCore.Components.Web.qwof7d2vrb.wasm": "sha256-2sbHozZBv9QBr5GScPkm7/SKwiK/o+72Xlg4ru0TGs4=",
       "Microsoft.AspNetCore.Components.WebAssembly.h2uwilejp5.wasm": "sha256-OcbSjxuOIQp/gt1/C3B6+O1KUK5Quz++JNgSll+5ErA=",

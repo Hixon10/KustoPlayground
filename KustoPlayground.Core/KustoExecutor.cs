@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Kusto.Language;
 using Kusto.Language.Syntax;
 
@@ -5,14 +6,20 @@ namespace KustoPlayground.Core;
 
 public class KustoExecutor
 {
-    private readonly Dictionary<string, Table> _tables = new();
+    private readonly ConcurrentDictionary<string, Table> _tables = new();
 
     public KustoExecutor()
     {
-        RegisterTable();
+        RegisterTable2();
     }
 
-    public void RegisterTable()
+    public void RegisterTable(Table table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        _tables[table.Name] = table;
+    }
+
+    public void RegisterTable2()
     {
         var startTimeCol = new Column<DateTime>("StartTime", isNullable: false);
         var stateCol = new Column<string>("State", isNullable: false);
@@ -46,7 +53,7 @@ public class KustoExecutor
             ["DamageProperty"] = 5000,
         });
 
-        _tables[stormEvents.Name] = stormEvents;
+        RegisterTable(stormEvents);
     }
 
     public List<IReadOnlyDictionary<string, object?>> Execute(string query)
