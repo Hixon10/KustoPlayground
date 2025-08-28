@@ -8,7 +8,7 @@ public class TableBuilderFromCsvTests
 3,Charlie,""San Francisco"",false,2007-12-30T16:00:00Z
 4,Diana,""Boston"",true,2007-09-29T08:11:00Z
 ";
-    
+
     [Test]
     public void SmokeTest()
     {
@@ -24,7 +24,12 @@ public class TableBuilderFromCsvTests
                 .ToDictionary(kv => kv.Key, kv => kv.Value))
             .ToList();
 
-        Table newTable = TableBuilderFromCsv.Build("MyTable", headers, rows);
+        Table newTable = TableBuilderFromCsv.Build(new TableDef()
+        {
+            Name = "MyTable",
+            Columns = headers.Select(header => new ColumnDef { Name = header }).ToList(),
+            Rows = rows,
+        });
 
         int[] expectedIds = [1, 2, 3, 4];
         string[] expectedNames = ["Alice", "Bob Joe", "Charlie", "Diana"];

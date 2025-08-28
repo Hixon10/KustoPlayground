@@ -21,7 +21,13 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\KustoPlayground.Core\KustoPlayground.Core.csproj" />
+        <ProjectReference Include="..\KustoPlayground.Core\KustoPlayground.Core.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="TestData\**\*.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
 </Project>

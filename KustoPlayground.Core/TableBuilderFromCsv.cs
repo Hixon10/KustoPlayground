@@ -2,15 +2,24 @@ namespace KustoPlayground.Core;
 
 public static class TableBuilderFromCsv
 {
-    public static Table Build(string tableName, List<string> headers, List<Dictionary<string, object?>> rows)
+    public static Table Build(TableDef tableDef)
     {
-        if (rows == null || rows.Count == 0)
+        if (tableDef.Rows == null || tableDef.Rows.Count == 0)
+        {
             throw new ArgumentException("empty rows");
+        }
+
+        // ignore nullable + type as of now,
+        // we will deduct them for csv.
+        /// TODO use type + nullable from ColumnDef?
+        List<string> headers = tableDef.Columns.Select(c => c.Name).ToList();
 
         if (headers == null || headers.Count == 0)
+        {
             throw new ArgumentException("empty headers");
+        }
 
-        foreach (var row in rows)
+        foreach (var row in tableDef.Rows)
         {
             if (row.Count != headers.Count)
             {
@@ -26,67 +35,43 @@ public static class TableBuilderFromCsv
         // infer schema
         foreach (var header in headers)
         {
-            var values = rows.Select(r => r[header]?.ToString()).ToList();
+            var values = tableDef.Rows.Select(r => r[header]?.ToString()).ToList();
             var columnType = InferColumnTypeFromStrings(values, out bool isNullable);
-            columns.Add(ColumnFactory.Create(columnType, header, isNullable));
+            columns.Add(TableBuilder.Create(columnType, header, isNullable));
             columnToType[header] = columnType;
         }
 
-        var table = new Table(tableName, columns);
+        var table = new Table(tableDef.Name, columns);
 
         // parse and insert rows
-        foreach (var row in rows)
-        {
-            var parsedRow = new Dictionary<string, object?>();
-            foreach (var col in columns)
-            {
-                var raw = row[col.Name]?.ToString();
-                parsedRow[col.Name] = ParseValue(raw, columnToType[col.Name]);
-            }
-
-            table.AddRow(parsedRow);
-        }
+        TableBuilder.AddRows(tableDef.Rows, columns, columnToType, table);
 
         return table;
-    }
-
-    private static class ColumnFactory
-    {
-        public static ColumnBase Create(Type type, string name, bool isNullable)
-        {
-            if (type == typeof(int)) return new Column<int>(name, isNullable);
-            if (type == typeof(long)) return new Column<long>(name, isNullable);
-            if (type == typeof(float)) return new Column<float>(name, isNullable);
-            if (type == typeof(double)) return new Column<double>(name, isNullable);
-            if (type == typeof(decimal)) return new Column<decimal>(name, isNullable);
-            if (type == typeof(bool)) return new Column<bool>(name, isNullable);
-            if (type == typeof(DateTime)) return new Column<DateTime>(name, isNullable);
-            if (type == typeof(Guid)) return new Column<Guid>(name, isNullable);
-            if (type == typeof(string)) return new Column<string>(name, isNullable);
-
-            throw new NotSupportedException($"Unsupported column type: {type}");
-        }
     }
 
     // ---- Helpers ----
 
     private static Type InferColumnTypeFromStrings(List<string?> values, out bool isNullable)
     {
-        isNullable = values.Any(v => string.IsNullOrEmpty(v));
+        isNullable = values.Any(string.IsNullOrEmpty);
 
         var nonNullValues = values.Where(v => !string.IsNullOrEmpty(v)).ToList();
         if (nonNullValues.Count == 0)
+        {
             return typeof(string);
+        }
 
         Type currentType = DetectType(nonNullValues[0]!);
 
         for (var index = 1; index < nonNullValues.Count; index++)
         {
-            var val = nonNullValues[index];
+            string? val = nonNullValues[index];
             var detectedType = DetectType(val!);
             currentType = GetWiderType(currentType, detectedType);
             if (currentType == typeof(string))
+            {
                 break;
+            }
         }
 
         return currentType;
@@ -107,7 +92,10 @@ public static class TableBuilderFromCsv
 
     private static Type GetWiderType(Type a, Type b)
     {
-        if (a == b) return a;
+        if (a == b)
+        {
+            return a;
+        }
 
         if (IsNumeric(a) && IsNumeric(b))
         {
@@ -125,19 +113,4 @@ public static class TableBuilderFromCsv
     private static bool IsNumeric(Type t) =>
         t == typeof(int) || t == typeof(long) ||
         t == typeof(float) || t == typeof(double) || t == typeof(decimal);
-
-    private static object? ParseValue(string? raw, Type targetType)
-    {
-        if (string.IsNullOrEmpty(raw)) return null;
-
-        if (targetType == typeof(int) && int.TryParse(raw, out var i)) return i;
-        if (targetType == typeof(long) && long.TryParse(raw, out var l)) return l;
-        if (targetType == typeof(decimal) && decimal.TryParse(raw, out var d)) return d;
-        if (targetType == typeof(double) && double.TryParse(raw, out var dbl)) return dbl;
-        if (targetType == typeof(bool) && bool.TryParse(raw, out var b)) return b;
-        if (targetType == typeof(DateTime) && DateTime.TryParse(raw, out var dt)) return dt;
-        if (targetType == typeof(Guid) && Guid.TryParse(raw, out var g)) return g;
-
-        return raw; // fallback
-    }
 }
