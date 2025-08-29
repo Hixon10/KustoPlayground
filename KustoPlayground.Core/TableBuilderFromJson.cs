@@ -1,9 +1,11 @@
+using System.Collections.ObjectModel;
+
 namespace KustoPlayground.Core;
 
 public static class TableBuilderFromJson
 {
-    private static readonly IReadOnlyDictionary<string, Type> _map
-        = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
+    internal static readonly ReadOnlyDictionary<string, Type> _map
+        = new(new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
         {
             ["bool"] = typeof(bool),
             ["byte"] = typeof(byte),
@@ -29,21 +31,12 @@ public static class TableBuilderFromJson
             ["datetimeoffset"] = typeof(DateTimeOffset),
             ["timespan"] = typeof(TimeSpan),
             ["guid"] = typeof(Guid),
-        };
-    
+        });
+
     public static Table Build(TableDef tableDef)
     {
         ArgumentNullException.ThrowIfNull(tableDef);
-
-        if (tableDef.Rows == null || tableDef.Rows.Count == 0)
-        {
-            throw new ArgumentException("empty rows");
-        }
-
-        if (tableDef.Columns == null || tableDef.Columns.Count == 0)
-        {
-            throw new ArgumentException("empty headers");
-        }
+        TableBuilder.ValidateTableDef(tableDef);
 
         var columns = new List<ColumnBase>();
         var columnToType = new Dictionary<string, Type>();

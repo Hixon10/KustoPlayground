@@ -4,10 +4,10 @@ using System.Collections.ObjectModel;
 
 namespace KustoPlayground.Core;
 
-public abstract class ColumnBase
+internal abstract class ColumnBase
 {
-    public string Name { get; }
-    public bool IsNullable { get; }
+    internal string Name { get; }
+    internal bool IsNullable { get; }
 
     protected ColumnBase(string name, bool isNullable)
     {
@@ -15,21 +15,21 @@ public abstract class ColumnBase
         IsNullable = isNullable;
     }
 
-    public abstract void ValidateValue(object? value);
+    internal abstract void ValidateValue(object? value);
 
-    public abstract void SetValue(Row row, object? value);
+    internal abstract void SetValue(Row row, object? value);
 
-    public abstract Type GetColumnType();
+    internal abstract Type GetColumnType();
 }
 
-public class Column<T> : ColumnBase
+internal class Column<T> : ColumnBase
 {
-    public Column(string name, bool isNullable = true)
+    internal Column(string name, bool isNullable = true)
         : base(name, isNullable)
     {
     }
 
-    public override void ValidateValue(object? value)
+    internal override void ValidateValue(object? value)
     {
         if (value is null)
         {
@@ -49,37 +49,31 @@ public class Column<T> : ColumnBase
         }
     }
 
-    public override void SetValue(Row row, object? value)
+    internal override void SetValue(Row row, object? value)
     {
         ValidateValue(value);
         row._values[Name] = value;
     }
 
-    public override Type GetColumnType() => typeof(T);
+    internal override Type GetColumnType() => typeof(T);
 }
 
-public class Row
+internal class Row
 {
     internal readonly ConcurrentDictionary<string, object?> _values = new();
-    public ReadOnlyDictionary<string, ColumnBase> Schema { get; }
+    internal ReadOnlyDictionary<string, ColumnBase> Schema { get; }
 
-    public Row(ReadOnlyDictionary<string, ColumnBase> schema)
+    internal Row(ReadOnlyDictionary<string, ColumnBase> schema)
     {
         Schema = schema;
     }
 
-    public T? Get<T>(Column<T> column)
+    internal T? Get<T>(Column<T> column)
     {
-        if (_values.TryGetValue(column.Name, out object? columnValue) &&
-            columnValue != null)
-        {
-            return (T?)columnValue;
-        }
-
-        return default;
+        return Get<T>(column.Name);
     }
 
-    public T? Get<T>(string columnName)
+    internal T? Get<T>(string columnName)
     {
         if (!Schema.TryGetValue(columnName, out ColumnBase? column))
         {
@@ -109,9 +103,9 @@ public class Table
     private ReadOnlyDictionary<string, ColumnBase> columnByName;
 
     private ImmutableList<Row> _rows = ImmutableList<Row>.Empty;
-    public IReadOnlyList<Row> Rows => _rows;
+    internal IReadOnlyList<Row> Rows => _rows;
 
-    public Table(string name, IEnumerable<ColumnBase> columns)
+    internal Table(string name, IEnumerable<ColumnBase> columns)
     {
         Name = name;
         Columns = columns.ToList();
@@ -123,6 +117,8 @@ public class Table
 
     public void AddRow(Dictionary<string, object?> values)
     {
+        ArgumentNullException.ThrowIfNull(values);
+
         var row = new Row(columnByName);
 
         foreach (var column in Columns)

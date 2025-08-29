@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using Kusto.Language;
 using Kusto.Language.Syntax;
 
@@ -19,7 +20,7 @@ public class KustoExecutor
         _tables[table.Name] = table;
     }
 
-    public void RegisterTable2()
+    private void RegisterTable2()
     {
         var startTimeCol = new Column<DateTime>("StartTime", isNullable: false);
         var stateCol = new Column<string>("State", isNullable: false);
@@ -56,7 +57,7 @@ public class KustoExecutor
         RegisterTable(stormEvents);
     }
 
-    public List<IReadOnlyDictionary<string, object?>> Execute(string query)
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>> Execute(string query)
     {
         var code = KustoCode.Parse(query);
 
@@ -183,15 +184,15 @@ public class KustoExecutor
 
             case SyntaxKind.GreaterThanExpression:
             {
-                var left = Convert.ToDouble(EvalOperand(be.Left, row));
-                var right = Convert.ToDouble(EvalOperand(be.Right, row));
+                var left = Convert.ToDouble(EvalOperand(be.Left, row), CultureInfo.InvariantCulture);
+                var right = Convert.ToDouble(EvalOperand(be.Right, row), CultureInfo.InvariantCulture);
                 return left > right;
             }
 
             case SyntaxKind.LessThanExpression:
             {
-                var left = Convert.ToDouble(EvalOperand(be.Left, row));
-                var right = Convert.ToDouble(EvalOperand(be.Right, row));
+                var left = Convert.ToDouble(EvalOperand(be.Left, row), CultureInfo.InvariantCulture);
+                var right = Convert.ToDouble(EvalOperand(be.Right, row), CultureInfo.InvariantCulture);
                 return left < right;
             }
 
@@ -215,7 +216,8 @@ public class KustoExecutor
         }
     }
 
-    private IEnumerable<Dictionary<string, object?>> ApplyProject(IEnumerable<Dictionary<string, object?>> source,
+    private static IEnumerable<Dictionary<string, object?>> ApplyProject(
+        IEnumerable<Dictionary<string, object?>> source,
         ProjectOperator project)
     {
         // unwrap SeparatedElement<Expression> → Expression
@@ -226,12 +228,12 @@ public class KustoExecutor
         {
             if (e is NameReference nr)
             {
-                return (Alias: nr.Name.SimpleName, Expr: (NameReference)nr);
+                return (Alias: nr.Name.SimpleName, Expr: nr);
             }
 
             if (e is SimpleNamedExpression sne && sne.Expression is NameReference inner)
             {
-                return (Alias: sne.Name.SimpleName, Expr: (NameReference)inner);
+                return (Alias: sne.Name.SimpleName, Expr: inner);
             }
 
             throw new NotSupportedException($"Unsupported project expression: {e.GetType().Name}");
@@ -240,11 +242,11 @@ public class KustoExecutor
         return source.Select(row =>
         {
             var dict = new Dictionary<string, object?>();
-            foreach ((string Alias, NameReference Expr) p in props)
+            foreach ((string Alias, NameReference? Expr) p in props)
             {
-                if (p.Expr is NameReference nr)
+                if (p.Expr != null)
                 {
-                    dict[p.Alias] = GetPropValue(row, nr.Name.SimpleName);
+                    dict[p.Alias] = GetPropValue(row, p.Expr.Name.SimpleName);
                 }
             }
 
@@ -252,12 +254,13 @@ public class KustoExecutor
         });
     }
 
-    private IEnumerable<Dictionary<string, object?>> ApplyTake(IEnumerable<Dictionary<string, object?>> source,
+    private static IEnumerable<Dictionary<string, object?>> ApplyTake(
+        IEnumerable<Dictionary<string, object?>> source,
         TakeOperator take)
     {
         if (take.Expression is LiteralExpression lit)
         {
-            var n = Convert.ToInt32(ParseLiteral(lit));
+            var n = Convert.ToInt32(ParseLiteral(lit), CultureInfo.InvariantCulture);
             return source.Take(n);
         }
 
@@ -279,12 +282,12 @@ public class KustoExecutor
 
         if (lit.Kind == SyntaxKind.IntLiteralExpression)
         {
-            return int.Parse(text);
+            return int.Parse(text, CultureInfo.InvariantCulture);
         }
 
         if (lit.Kind == SyntaxKind.RealLiteralExpression)
         {
-            return double.Parse(text);
+            return double.Parse(text, CultureInfo.InvariantCulture);
         }
 
         return text;

@@ -4,10 +4,8 @@ public static class TableBuilderFromCsv
 {
     public static Table Build(TableDef tableDef)
     {
-        if (tableDef.Rows == null || tableDef.Rows.Count == 0)
-        {
-            throw new ArgumentException("empty rows");
-        }
+        ArgumentNullException.ThrowIfNull(tableDef);
+        TableBuilder.ValidateTableDef(tableDef);
 
         // ignore nullable + type as of now,
         // we will deduct them for csv.

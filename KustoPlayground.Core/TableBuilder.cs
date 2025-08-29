@@ -2,9 +2,9 @@ namespace KustoPlayground.Core;
 
 public sealed class TableDef
 {
-    public string Name { get; set; } = "";
-    public List<ColumnDef> Columns { get; set; } = new();
-    public List<Dictionary<string, object?>> Rows { get; set; } = new();
+    public required string Name { get; init; }
+    public required IReadOnlyList<ColumnDef> Columns { get; init; }
+    public required IReadOnlyList<Dictionary<string, object?>> Rows { get; init; }
 }
 
 public sealed class ColumnDef
@@ -14,11 +14,39 @@ public sealed class ColumnDef
     public bool Nullable { get; set; }
 }
 
-static class TableBuilder
+internal static class TableBuilder
 {
+    internal static void ValidateTableDef(TableDef tableDef)
+    {
+        ArgumentNullException.ThrowIfNull(tableDef);
+
+        if (string.IsNullOrEmpty(tableDef.Name))
+        {
+            throw new ArgumentException("empty table name");
+        }
+        
+        if (tableDef.Rows == null || tableDef.Rows.Count == 0)
+        {
+            throw new ArgumentException("empty table rows");
+        }
+
+        if (tableDef.Columns == null || tableDef.Columns.Count == 0)
+        {
+            throw new ArgumentException("empty table columns");
+        }
+        
+        foreach (ColumnDef columnDef in tableDef.Columns)
+        {
+            if (string.IsNullOrEmpty(columnDef.Name))
+            { 
+                throw new ArgumentException("empty column name");
+            }
+        }
+    }
+    
     internal static void AddRows(
-        List<Dictionary<string, object?>> rows,
-        List<ColumnBase> columns,
+        IReadOnlyList<Dictionary<string, object?>> rows,
+        IReadOnlyList<ColumnBase> columns,
         Dictionary<string, Type> columnToType,
         Table table)
     {
@@ -62,7 +90,7 @@ static class TableBuilder
         return raw; // fallback
     }
 
-    public static ColumnBase Create(Type type, string name, bool isNullable)
+    internal static ColumnBase Create(Type type, string name, bool isNullable)
     {
         if (type == typeof(int)) return new Column<int>(name, isNullable);
         if (type == typeof(long)) return new Column<long>(name, isNullable);

@@ -16,7 +16,7 @@ public class KustoExecutorTests
             | project StartTime, EventType, DamageProperty
             | take 10
         ";
-        List<IReadOnlyDictionary<string, object?>> results = kustoExecutor.Execute(query);
+        var results = kustoExecutor.Execute(query);
         List<IReadOnlyDictionary<string, object?>> expected =
         [
             new Dictionary<string, object?>
