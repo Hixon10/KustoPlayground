@@ -1,7 +1,7 @@
 ﻿@page "/"
 
 @using KustoPlayground.Core
-@inject KustoExecutor KustoExecutor
+@inject KustoDatabase KustoDatabase
 
 <h3>Add Kusto table from CSV</h3>
 
@@ -26,11 +26,22 @@
 <br/>
 <button @onclick="ExecuteKusto">Process Kusto Query</button>
 
-@if (Results != null && Results.Any())
+@if (Results.Any())
 {
     <h4>Results</h4>
     <ul>
         @foreach (var line in Results)
+        {
+            <li>@line</li>
+        }
+    </ul>
+}
+
+@if (Errors.Any())
+{
+    <h4 style="color: red;">Errors</h4>
+    <ul>
+        @foreach (var line in Errors)
         {
             <li>@line</li>
         }
@@ -55,6 +66,8 @@
 ";
 
     private List<string> Results { get; set; } = new();
+    
+    private List<string> Errors { get; set; } = new();
 
     private void ProcessCsv()
     {
@@ -87,17 +100,34 @@
             Rows = rows,
         });
 
-        KustoExecutor.RegisterTable(newTable);
+        KustoDatabase.AddTable(newTable);
         CsvAdded = true;
+        
+        Results = new List<string>();
+        Errors = new List<string>();
     }
 
     private void ExecuteKusto()
     {
-        var executeResults = KustoExecutor.Execute(KqlQuery);
-        Results = executeResults
-            .Select(row =>
-                string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")))
-            .ToList();
+        Results = new List<string>();
+        Errors = new List<string>();
+        
+        var executeResults = KustoDatabase.ExecuteQuery(KqlQuery);
+
+        if (executeResults.ResultRows != null)
+        {
+            Results = executeResults.ResultRows
+                .Select(row =>
+                    string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")))
+                .ToList();
+        }
+
+        if (executeResults.ExecutionErrors != null)
+        {
+            Errors = executeResults.ExecutionErrors
+                .Select(error => $"{error.Code} -- {error.Description}")
+                .ToList();
+        }
     }
 
 }

@@ -1,64 +1,102 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Kusto.Language;
 using Kusto.Language.Syntax;
 
 namespace KustoPlayground.Core;
 
-public class KustoExecutor
+/// <summary>
+/// Represents the result of a query execution.
+/// </summary>
+public sealed class ExecutionResult
+{
+    /// <summary>
+    /// The collection of rows returned by the query.
+    /// Can be null, if the execution fails.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>>? ResultRows { get; init; }
+
+    /// <summary>
+    /// The collection of errors encountered during execution.
+    /// Can be null, if no errors occurred.
+    /// </summary>
+    public IReadOnlyList<ExecutionError>? ExecutionErrors { get; init; }
+}
+
+/// <summary>
+/// Represents an error that occurred during query execution 
+/// (for example, a parsing error).
+/// </summary>
+public sealed class ExecutionError
+{
+    public enum ErrorCodes
+    {
+        None,
+        InternalError,
+        UnknownTable,
+    }
+
+    public required string Code { get; init; }
+    public string? Description { get; init; }
+}
+
+/// <summary>
+/// Main interface to interact with a Kusto database.
+/// </summary>
+public class KustoDatabase
 {
     private readonly ConcurrentDictionary<string, Table> _tables = new();
 
-    public KustoExecutor()
-    {
-        RegisterTable2();
-    }
-
-    public void RegisterTable(Table table)
+    /// <summary>
+    /// Add a table to the current database.
+    /// </summary>
+    /// <param name="table">Table</param>
+    public void AddTable(Table table)
     {
         ArgumentNullException.ThrowIfNull(table);
         _tables[table.Name] = table;
     }
 
-    private void RegisterTable2()
+    /// <summary>
+    /// Execute a query in the database.
+    /// </summary>
+    /// <param name="query">query</param>
+    /// <returns>Rows, or execution errors.</returns>
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "Top-level handler, exceptions are returned.")]
+    public ExecutionResult ExecuteQuery(string query)
     {
-        var startTimeCol = new Column<DateTime>("StartTime", isNullable: false);
-        var stateCol = new Column<string>("State", isNullable: false);
-        var eventTypeCol = new Column<string>("EventType", isNullable: false);
-        var damagePropertyCol = new Column<int>("DamageProperty", isNullable: false);
-
-        var stormEvents = new Table("StormEvents",
-            new ColumnBase[] { startTimeCol, stateCol, eventTypeCol, damagePropertyCol });
-
-        stormEvents.AddRow(new Dictionary<string, object?>
+        try
         {
-            ["StartTime"] = new DateTime(2025, 8, 23, 6, 20, 0),
-            ["State"] = "FLORIDA",
-            ["EventType"] = "Hurricane",
-            ["DamageProperty"] = 20000,
-        });
-
-        stormEvents.AddRow(new Dictionary<string, object?>
+            return new ExecutionResult
+            {
+                ResultRows = ExecuteQueryInternal(query)
+            };
+        }
+        catch (Exception ex)
         {
-            ["StartTime"] = new DateTime(2023, 3, 28, 10, 30, 0),
-            ["State"] = "TEXAS",
-            ["EventType"] = "Flood",
-            ["DamageProperty"] = 5000,
-        });
-
-        stormEvents.AddRow(new Dictionary<string, object?>
-        {
-            ["StartTime"] = new DateTime(2024, 6, 1, 16, 50, 30),
-            ["State"] = "FLORIDA",
-            ["EventType"] = "Tornado",
-            ["DamageProperty"] = 5000,
-        });
-
-        RegisterTable(stormEvents);
+            return new ExecutionResult()
+            {
+                ExecutionErrors =
+                [
+                    new ExecutionError()
+                    {
+                        Code = nameof(ExecutionError.ErrorCodes.InternalError),
+                        Description = ex.Message
+                    }
+                ]
+            };
+        }
     }
 
-    public IReadOnlyList<IReadOnlyDictionary<string, object?>> Execute(string query)
+    private List<IReadOnlyDictionary<string, object?>> ExecuteQueryInternal(string query)
     {
+        if (string.IsNullOrEmpty(query))
+        {
+            throw new ArgumentException("query is null or empty");
+        }
+
         var code = KustoCode.Parse(query);
 
         if (code.Syntax is not QueryBlock block)
