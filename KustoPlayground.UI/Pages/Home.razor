@@ -4,38 +4,47 @@
 @using KustoPlayground.Core
 @inject KustoDatabase KustoDatabase
 
-<h3>Add Kusto table from CSV</h3>
+<h3>Add Kusto table</h3>
 
-<label for="csvData">CSV data:</label>
-<br/>
-<textarea id="csvData" @bind="CsvText" rows="6" cols="60" placeholder="Paste CSV header and rows here"></textarea>
-<br/>
-<br/>
-<label for="tableName">Table name:</label>
-<br/>
-<input id="tableName" @bind="CsvTableName" placeholder="Table name (e.g., MyTable)"/>
-<br/>
-<button @onclick="ProcessCsv">Add Table</button>
+<!-- Tab buttons -->
+<div style="margin-bottom:10px;">
+    <button style="@(ActiveTab == "CSV" ? "font-weight:bold;" : "")" @onclick="@(() => ActiveTab = "CSV")">CSV</button>
+    <button style="@(ActiveTab == "JSON" ? "font-weight:bold;" : "")" @onclick="@(() => ActiveTab = "JSON")">JSON
+    </button>
+</div>
 
-@if (CsvAdded)
+@if (ActiveTab == "CSV")
 {
-    <p><em>CSV table "@CsvTableName" added successfully.</em></p>
+    <label for="csvData">CSV data:</label>
+    <br/>
+    <textarea id="csvData" @bind="CsvText" rows="6" cols="60" placeholder="Paste CSV header and rows here"></textarea>
+    <br/>
+    <br/>
+    <label for="tableName">Table name:</label>
+    <br/>
+    <input id="tableName" @bind="CsvTableName" placeholder="Table name (e.g., MyTable)"/>
+    <br/>
+    <button @onclick="ProcessCsv">Add Table</button>
+
+    @if (CsvAdded)
+    {
+        <p><em>CSV table "@CsvTableName" added successfully.</em></p>
+    }
 }
 
-<hr/>
-
-<h3>Add Kusto table from JSON</h3>
-
-<label for="jsonData">JSON table representation:</label>
-<br/>
-<textarea id="jsonData" @bind="JsonText" rows="6" cols="60"
-          placeholder="Paste JSON table representation"></textarea>
-<br/>
-<button @onclick="ProcessJson">Add Table</button>
-
-@if (JsonAdded)
+@if (ActiveTab == "JSON")
 {
-    <p><em>JSON table added successfully.</em></p>
+    <label for="jsonData">JSON table representation:</label>
+    <br/>
+    <textarea id="jsonData" @bind="JsonText" rows="6" cols="60"
+              placeholder="Paste JSON table representation"></textarea>
+    <br/>
+    <button @onclick="ProcessJson">Add Table</button>
+
+    @if (JsonAdded)
+    {
+        <p><em>JSON table added successfully.</em></p>
+    }
 }
 
 <hr/>
@@ -69,6 +78,7 @@
 }
 
 @code {
+    private string ActiveTab { get; set; } = "CSV";
 
     // CSV state
     private string CsvText { get; set; } = @"DamageProperty,StartTime,State,EventType
@@ -105,6 +115,7 @@
   ]
 }
 ";
+
     private bool JsonAdded { get; set; }
 
     // Query state
@@ -162,7 +173,7 @@
         {
             return;
         }
-        
+
         TableDef? tableDef = JsonSerializer.Deserialize<TableDef>(JsonText);
         Table table = TableBuilderFromJson.Build(tableDef!);
 
@@ -177,7 +188,7 @@
     {
         Results = new List<string>();
         Errors = new List<string>();
-        
+
         JsonAdded = false;
         CsvAdded = false;
 
