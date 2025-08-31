@@ -1,4 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace KustoPlayground.Core;
+
+[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default)]
+[JsonSerializable(typeof(TableDef))]
+[JsonSerializable(typeof(ColumnDef))]
+public partial class TableDefJsonContext : JsonSerializerContext;
 
 public sealed class TableDef
 {

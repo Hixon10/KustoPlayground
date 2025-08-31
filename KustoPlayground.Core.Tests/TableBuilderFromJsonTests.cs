@@ -36,6 +36,39 @@ public class TableBuilderFromJsonTests
         TableDef? tableDef = JsonSerializer.Deserialize<TableDef>(json);
         SmokeTest(tableDef);
     }
+    
+    [Test]
+    public void SmokeFromVariableWithJsonSerializerContextTest()
+    {
+        string json = """
+                      {
+                        "Name": "StormEvents",
+                        "Columns": [
+                          { "Name": "StartTime", "Type": "DateTime", "Nullable": false },
+                          { "Name": "State", "Type": "string", "Nullable": false },
+                          { "Name": "EventType", "Type": "string", "Nullable": true },
+                          { "Name": "DamageProperty", "Type": "int", "Nullable": false }
+                        ],
+                        "Rows": [
+                          {
+                            "StartTime": "2025-08-23T06:20:00",
+                            "State": "FLORIDA",
+                            "EventType": "Hurricane",
+                            "DamageProperty": 20000
+                          },
+                          {
+                            "StartTime": "08/28/2025 09:49 AM",
+                            "State": "TEXAS",
+                            "EventType": "Tornado",
+                            "DamageProperty": 5000
+                          }
+                        ]
+                      }
+                      """;
+
+        TableDef? tableDef = JsonSerializer.Deserialize<TableDef>(json, TableDefJsonContext.Default.TableDef);
+        SmokeTest(tableDef);
+    }
 
     [Test]
     public void SmokeFromFileTest()

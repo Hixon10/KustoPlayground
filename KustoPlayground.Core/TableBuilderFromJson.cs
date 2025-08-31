@@ -38,6 +38,14 @@ public static class TableBuilderFromJson
         ArgumentNullException.ThrowIfNull(tableDef);
         TableBuilder.ValidateTableDef(tableDef);
 
+        foreach (ColumnDef columnDef in tableDef.Columns)
+        {
+            if (string.IsNullOrEmpty(columnDef.Type))
+            { 
+                throw new ArgumentException($"column '{columnDef.Name}' has empty Type.");
+            }
+        }
+        
         var columns = new List<ColumnBase>();
         var columnToType = new Dictionary<string, Type>();
 

@@ -136,35 +136,44 @@
             return;
         }
 
-        var lines = CsvText.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(l => l.Trim())
-            .ToList();
-
-        if (lines.Count < 2)
+        try
         {
-            return;
+            var lines = CsvText.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .ToList();
+
+            if (lines.Count < 2)
+            {
+                return;
+            }
+
+            var headers = lines[0].Split(',').Select(h => h.Trim()).ToList();
+
+            var rows = lines.Skip(1)
+                .Select(line => line.Split(',')
+                    .Select((val, idx) => new KeyValuePair<string, object?>(headers[idx], val.Trim()))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value))
+                .ToList();
+
+            Table newTable = TableBuilderFromCsv.Build(new TableDef
+            {
+                Name = CsvTableName,
+                Columns = headers.Select(header => new ColumnDef { Name = header }).ToList(),
+                Rows = rows
+            });
+
+            KustoDatabase.AddTable(newTable);
+            CsvAdded = true;
+            JsonAdded = false;
+            Results = new List<string>();
+            Errors = new List<string>();
         }
-
-        var headers = lines[0].Split(',').Select(h => h.Trim()).ToList();
-
-        var rows = lines.Skip(1)
-            .Select(line => line.Split(',')
-                .Select((val, idx) => new KeyValuePair<string, object?>(headers[idx], val.Trim()))
-                .ToDictionary(kv => kv.Key, kv => kv.Value))
-            .ToList();
-
-        Table newTable = TableBuilderFromCsv.Build(new TableDef
+        catch (Exception ex)
         {
-            Name = CsvTableName,
-            Columns = headers.Select(header => new ColumnDef { Name = header }).ToList(),
-            Rows = rows
-        });
-
-        KustoDatabase.AddTable(newTable);
-        CsvAdded = true;
-        JsonAdded = false;
-        Results = new();
-        Errors = new();
+            Console.WriteLine("Unhandled error during ProcessCsv()");
+            Console.WriteLine(ex.ToString());
+            throw;
+        }
     }
 
     private void ProcessJson()
@@ -174,14 +183,23 @@
             return;
         }
 
-        TableDef? tableDef = JsonSerializer.Deserialize<TableDef>(JsonText);
-        Table table = TableBuilderFromJson.Build(tableDef!);
+        try
+        {
+            TableDef? tableDef = JsonSerializer.Deserialize<TableDef>(JsonText, TableDefJsonContext.Default.TableDef);
+            Table table = TableBuilderFromJson.Build(tableDef!);
 
-        KustoDatabase.AddTable(table);
-        JsonAdded = true;
-        CsvAdded = false;
-        Results = new List<string>();
-        Errors = new List<string>();
+            KustoDatabase.AddTable(table);
+            JsonAdded = true;
+            CsvAdded = false;
+            Results = new List<string>();
+            Errors = new List<string>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Unhandled error during ProcessJson()");
+            Console.WriteLine(ex.ToString());
+            throw;
+        }
     }
 
     private void ExecuteKusto()
@@ -192,26 +210,35 @@
         JsonAdded = false;
         CsvAdded = false;
 
-        var executeResults = KustoDatabase.ExecuteQuery(KqlQuery);
-
-        if (executeResults.ResultRows != null)
+        try
         {
-            Results = executeResults.ResultRows
-                .Select(row =>
-                    string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")))
-                .ToList();
+            var executeResults = KustoDatabase.ExecuteQuery(KqlQuery);
 
-            if (Results.Count == 0)
+            if (executeResults.ResultRows != null)
             {
-                Results.Add("Empty result");
+                Results = executeResults.ResultRows
+                    .Select(row =>
+                        string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")))
+                    .ToList();
+
+                if (Results.Count == 0)
+                {
+                    Results.Add("Empty result");
+                }
+            }
+
+            if (executeResults.ExecutionErrors != null)
+            {
+                Errors = executeResults.ExecutionErrors
+                    .Select(error => $"{error.Code} -- {error.Description}")
+                    .ToList();
             }
         }
-
-        if (executeResults.ExecutionErrors != null)
+        catch (Exception ex)
         {
-            Errors = executeResults.ExecutionErrors
-                .Select(error => $"{error.Code} -- {error.Description}")
-                .ToList();
+            Console.WriteLine("Unhandled error during ExecuteKusto()");
+            Console.WriteLine(ex.ToString());
+            throw;
         }
     }
 
