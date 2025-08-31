@@ -1,5 +1,6 @@
 ﻿@page "/"
 
+@using System.Text.Json
 @using KustoPlayground.Core
 @inject KustoDatabase KustoDatabase
 
@@ -19,6 +20,22 @@
 @if (CsvAdded)
 {
     <p><em>CSV table "@CsvTableName" added successfully.</em></p>
+}
+
+<hr/>
+
+<h3>Add Kusto table from JSON</h3>
+
+<label for="jsonData">JSON table representation:</label>
+<br/>
+<textarea id="jsonData" @bind="JsonText" rows="6" cols="60"
+          placeholder="Paste JSON table representation"></textarea>
+<br/>
+<button @onclick="ProcessJson">Add Table</button>
+
+@if (JsonAdded)
+{
+    <p><em>JSON table added successfully.</em></p>
 }
 
 <hr/>
@@ -53,6 +70,7 @@
 
 @code {
 
+    // CSV state
     private string CsvText { get; set; } = @"DamageProperty,StartTime,State,EventType
 20000,8/23/2025 6:20:00 AM,FLORIDA,Hurricane
 5000,3/28/2023 10:30:00 AM,TEXAS,Flood
@@ -62,6 +80,34 @@
     private string CsvTableName { get; set; } = "StormEvents";
     private bool CsvAdded { get; set; }
 
+    // JSON state
+    private string JsonText { get; set; } = @"{
+  ""Name"": ""StormEvents"",
+  ""Columns"": [
+    { ""Name"": ""StartTime"", ""Type"": ""DateTime"", ""Nullable"": false },
+    { ""Name"": ""State"", ""Type"": ""string"", ""Nullable"": false },
+    { ""Name"": ""EventType"", ""Type"": ""string"", ""Nullable"": true },
+    { ""Name"": ""DamageProperty"", ""Type"": ""int"", ""Nullable"": false }
+  ],
+  ""Rows"": [
+    {
+      ""StartTime"": ""2025-08-23T06:20:00"",
+      ""State"": ""FLORIDA"",
+      ""EventType"": ""Hurricane"",
+      ""DamageProperty"": 20000
+    },
+    {
+      ""StartTime"": ""08/28/2025 09:49 AM"",
+      ""State"": ""TEXAS"",
+      ""EventType"": ""Tornado"",
+      ""DamageProperty"": 5000
+    }
+  ]
+}
+";
+    private bool JsonAdded { get; set; }
+
+    // Query state
     private string KqlQuery { get; set; } = @"StormEvents
     | where State == 'FLORIDA' and DamageProperty > 10000
     | project StartTime, EventType, DamageProperty
@@ -69,7 +115,7 @@
 ";
 
     private List<string> Results { get; set; } = new();
-    
+
     private List<string> Errors { get; set; } = new();
 
     private void ProcessCsv()
@@ -96,16 +142,33 @@
                 .ToDictionary(kv => kv.Key, kv => kv.Value))
             .ToList();
 
-        Table newTable = TableBuilderFromCsv.Build(new TableDef()
+        Table newTable = TableBuilderFromCsv.Build(new TableDef
         {
             Name = CsvTableName,
             Columns = headers.Select(header => new ColumnDef { Name = header }).ToList(),
-            Rows = rows,
+            Rows = rows
         });
 
         KustoDatabase.AddTable(newTable);
         CsvAdded = true;
+        JsonAdded = false;
+        Results = new();
+        Errors = new();
+    }
+
+    private void ProcessJson()
+    {
+        if (string.IsNullOrWhiteSpace(JsonText))
+        {
+            return;
+        }
         
+        TableDef? tableDef = JsonSerializer.Deserialize<TableDef>(JsonText);
+        Table table = TableBuilderFromJson.Build(tableDef!);
+
+        KustoDatabase.AddTable(table);
+        JsonAdded = true;
+        CsvAdded = false;
         Results = new List<string>();
         Errors = new List<string>();
     }
@@ -115,6 +178,9 @@
         Results = new List<string>();
         Errors = new List<string>();
         
+        JsonAdded = false;
+        CsvAdded = false;
+
         var executeResults = KustoDatabase.ExecuteQuery(KqlQuery);
 
         if (executeResults.ResultRows != null)
