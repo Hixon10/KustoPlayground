@@ -5,11 +5,14 @@
 
 <h3>Add Kusto table from CSV</h3>
 
-<textarea @bind="CsvText" rows="10" cols="60" placeholder="Paste CSV header and rows here"></textarea>
+<label for="csvData">CSV data:</label>
+<br/>
+<textarea id="csvData" @bind="CsvText" rows="6" cols="60" placeholder="Paste CSV header and rows here"></textarea>
 <br/>
 <br/>
-<input @bind="CsvTableName" placeholder="Table name (e.g., MyTable)"/>
+<label for="tableName">Table name:</label>
 <br/>
+<input id="tableName" @bind="CsvTableName" placeholder="Table name (e.g., MyTable)"/>
 <br/>
 <button @onclick="ProcessCsv">Add Table</button>
 
@@ -120,6 +123,11 @@
                 .Select(row =>
                     string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")))
                 .ToList();
+
+            if (Results.Count == 0)
+            {
+                Results.Add("Empty result");
+            }
         }
 
         if (executeResults.ExecutionErrors != null)
