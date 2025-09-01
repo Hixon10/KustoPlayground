@@ -283,6 +283,24 @@ public class KustoDatabase
                    Convert.ToDouble(right, CultureInfo.InvariantCulture);
         }
 
+        if (IsNumeric(left) && right is string rightStr)
+        {
+            // if query tries to compare number, and "number2", we should allow it.
+            if (double.TryParse(rightStr, CultureInfo.InvariantCulture, out double rightRes))
+            {
+                return Convert.ToDouble(left, CultureInfo.InvariantCulture) == rightRes;
+            }
+        }
+        
+        if (left is string leftString && IsNumeric(right))
+        {
+            // if query tries to compare "number", and number2, we should allow it.
+            if (double.TryParse(leftString, CultureInfo.InvariantCulture, out double leftRes))
+            {
+                return leftRes == Convert.ToDouble(right, CultureInfo.InvariantCulture);
+            }
+        }
+        
         if (left is string ls && right is string rs)
         {
             return string.Equals(ls, rs, StringComparison.OrdinalIgnoreCase);

@@ -3,6 +3,121 @@ namespace KustoPlayground.Core.Tests;
 public class WhereSmokeTests
 {
     [Test]
+    [Description("Weird test, but it replicates the original Kusto behaviour")]
+    public void WhereStringNumbersSmokeTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        List<string> tableRows = ["1", "-2", "1", "3.1"];
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(
+            tableRows, tableName: "table1", columnName: columnName);
+        kustoDatabase.AddTable(table);
+
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == \"orange\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == \"1\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"1", "1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == 1");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"1", "1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != \"1\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"-2", "3.1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != 1");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"-2", "3.1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == \"3.1\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"3.1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == 3.1");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"3.1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != \"3.1\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"1", "-2", "1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != 3.1");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"1", "-2", "1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == \"-2\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"-2"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == -2");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"-2"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != \"-2\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"1", "3.1", "1"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != -2");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"1", "3.1", "1"}));
+    }
+    
+    [Test]
+    public void WhereStringTypeSmokeTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        List<string> tableRows = ["green", "red", "blue", "red"];
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(
+            tableRows, tableName: "table1", columnName: columnName);
+        kustoDatabase.AddTable(table);
+
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == \"orange\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == \"red\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"red", "red"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != \"red\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"green", "blue"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 == \"green\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"green"}));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != \"green\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>{"red", "blue", "red"}));
+    }
+
+    [Test]
     public void WhereIntTypeSmokeTest()
     {
         KustoDatabase kustoDatabase = new KustoDatabase();
