@@ -1,25 +1,4 @@
-using System.Text.Json.Serialization;
-
 namespace KustoPlayground.Core;
-
-[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default)]
-[JsonSerializable(typeof(TableDef))]
-[JsonSerializable(typeof(ColumnDef))]
-public partial class TableDefJsonContext : JsonSerializerContext;
-
-public sealed class TableDef
-{
-    public required string Name { get; init; }
-    public required IReadOnlyList<ColumnDef> Columns { get; init; }
-    public required IReadOnlyList<Dictionary<string, object?>> Rows { get; init; }
-}
-
-public sealed class ColumnDef
-{
-    public string Name { get; set; } = "";
-    public string Type { get; set; } = "";
-    public bool Nullable { get; set; }
-}
 
 internal static class TableBuilder
 {
@@ -31,7 +10,7 @@ internal static class TableBuilder
         {
             throw new ArgumentException("empty table name");
         }
-        
+
         if (tableDef.Rows == null || tableDef.Rows.Count == 0)
         {
             throw new ArgumentException("empty table rows");
@@ -41,16 +20,16 @@ internal static class TableBuilder
         {
             throw new ArgumentException("empty table columns");
         }
-        
+
         foreach (ColumnDef columnDef in tableDef.Columns)
         {
             if (string.IsNullOrEmpty(columnDef.Name))
-            { 
+            {
                 throw new ArgumentException("empty column name");
             }
         }
     }
-    
+
     internal static void AddRows(
         IReadOnlyList<Dictionary<string, object?>> rows,
         IReadOnlyList<ColumnBase> columns,
@@ -94,7 +73,9 @@ internal static class TableBuilder
         if (targetType == typeof(DateTimeOffset) && DateTimeOffset.TryParse(raw, out DateTimeOffset dto)) return dto;
         if (targetType == typeof(TimeSpan) && TimeSpan.TryParse(raw, out TimeSpan ts)) return ts;
 
-        return raw; // fallback
+        if (targetType == typeof(string)) return raw;
+
+        throw new NotSupportedException($"Unsupported column type to ParseValue: {targetType}");
     }
 
     internal static ColumnBase Create(Type type, string name, bool isNullable)

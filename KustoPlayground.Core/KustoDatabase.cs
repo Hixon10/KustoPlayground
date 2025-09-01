@@ -1,51 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Text.Json.Serialization;
 using Kusto.Language;
 using Kusto.Language.Syntax;
 
 namespace KustoPlayground.Core;
-
-[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default)]
-[JsonSerializable(typeof(ExecutionResult))]
-[JsonSerializable(typeof(ExecutionError))]
-public partial class ExecutionResultJsonContext : JsonSerializerContext;
-
-/// <summary>
-/// Represents the result of a query execution.
-/// </summary>
-public sealed class ExecutionResult
-{
-    /// <summary>
-    /// The collection of rows returned by the query.
-    /// Can be null, if the execution fails.
-    /// </summary>
-    public IReadOnlyList<IReadOnlyDictionary<string, object?>>? ResultRows { get; init; }
-
-    /// <summary>
-    /// The collection of errors encountered during execution.
-    /// Can be null, if no errors occurred.
-    /// </summary>
-    public IReadOnlyList<ExecutionError>? ExecutionErrors { get; init; }
-}
-
-/// <summary>
-/// Represents an error that occurred during query execution 
-/// (for example, a parsing error).
-/// </summary>
-public sealed class ExecutionError
-{
-    public enum ErrorCodes
-    {
-        None,
-        InternalError,
-        UnknownTable,
-    }
-
-    public required string Code { get; init; }
-    public string? Description { get; init; }
-}
 
 /// <summary>
 /// Main interface to interact with a Kusto database.
@@ -201,7 +160,7 @@ public class KustoDatabase
                 {
                     return b;
                 }
-                
+
                 // Interpret bare property as truthy/non-null
                 return propValue != null;
             }
@@ -297,7 +256,7 @@ public class KustoDatabase
                 return Convert.ToDouble(left, CultureInfo.InvariantCulture) == rightRes;
             }
         }
-        
+
         if (left is string leftString && IsNumeric(right))
         {
             // if query tries to compare "number", and number2, we should allow it.
@@ -306,7 +265,7 @@ public class KustoDatabase
                 return leftRes == Convert.ToDouble(right, CultureInfo.InvariantCulture);
             }
         }
-        
+
         if (left is string ls && right is string rs)
         {
             return string.Equals(ls, rs, StringComparison.OrdinalIgnoreCase);

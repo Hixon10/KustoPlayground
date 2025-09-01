@@ -42,6 +42,9 @@ public class KustoDatabaseTests
 
         string serialize = JsonSerializer.Serialize(executionResult);
         Assert.That(string.IsNullOrEmpty(serialize), Is.False);
+        
+        string serialize2 = JsonSerializer.Serialize(executionResult, ExecutionResultJsonContext.Default.ExecutionResult);
+        Assert.That(string.IsNullOrEmpty(serialize2), Is.False);
 
         string json = """
                       {
