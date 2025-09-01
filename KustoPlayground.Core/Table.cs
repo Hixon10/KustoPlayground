@@ -100,7 +100,7 @@ public class Table
 {
     public string Name { get; }
     private IReadOnlyList<ColumnBase> Columns { get; }
-    private ReadOnlyDictionary<string, ColumnBase> columnByName;
+    internal ReadOnlyDictionary<string, ColumnBase> Schema { get; }
 
     private ImmutableList<Row> _rows = ImmutableList<Row>.Empty;
     internal IReadOnlyList<Row> Rows => _rows;
@@ -110,16 +110,25 @@ public class Table
         Name = name;
         Columns = columns.ToList();
 
-        columnByName = Columns.ToDictionary(
+        Schema = Columns.ToDictionary(
             k => k.Name,
             v => v).AsReadOnly();
     }
 
-    public void AddRow(Dictionary<string, object?> values)
+    public void AddRows(IReadOnlyList<IReadOnlyDictionary<string, object?>> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        foreach (var row in rows)
+        {
+            AddRow(row);
+        }
+    }
+
+    public void AddRow(IReadOnlyDictionary<string, object?> values)
     {
         ArgumentNullException.ThrowIfNull(values);
 
-        var row = new Row(columnByName);
+        var row = new Row(Schema);
 
         foreach (var column in Columns)
         {

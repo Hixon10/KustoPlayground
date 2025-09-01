@@ -39,7 +39,7 @@ public class KustoDatabaseTests
         Assert.That(results.ExecutionErrors, Is.Null);
         Assert.That(results.ResultRows!, Is.Empty);
     }
-    
+
     [Test]
     public void ExecuteQueryWithTableAndDataFromUiTest()
     {
@@ -58,8 +58,8 @@ public class KustoDatabaseTests
             {
                 { "DamageProperty", 20000 },
                 { "StartTime", new DateTime(2025, 8, 23, 6, 20, 0) },
-                { "EventType", "Hurricane" },
-            }.AsReadOnly(),
+                { "EventType", "Hurricane" }
+            }.AsReadOnly()
         ];
 
         Assert.That(results.ExecutionErrors, Is.Null);
@@ -68,6 +68,56 @@ public class KustoDatabaseTests
         {
             Assert.That(results.ResultRows[index], Is.EquivalentTo(expected[index]));
         }
+    }
+
+    [Test]
+    public void GetAllRowsForIntTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        HashSet<int> expectedData = [1, 2, 3, 4];
+        Table table = TestUtils.GenerateTableWithColumn(expectedData, tableName: "table1");
+        kustoDatabase.AddTable(table);
+
+        List<int> actualData =
+            TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase, table.Name);
+        Assert.That(actualData, Is.EquivalentTo(expectedData));
+    }
+
+    [Test]
+    public void GetAllRowsForLongTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        HashSet<long> expectedData = [1L, 2L, 3L, 4L];
+        Table table = TestUtils.GenerateTableWithColumn(expectedData, tableName: "table1");
+        kustoDatabase.AddTable(table);
+
+        List<long> actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(
+            TestUtils.GetColumnNane(table), kustoDatabase, table.Name);
+        Assert.That(actualData, Is.EquivalentTo(expectedData));
+    }
+
+    [Test]
+    public void GetAllRowsWhenTwoTablesRegisteredTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        HashSet<int> table1Data = [1, 2, 3, 4];
+        Table table1 = TestUtils.GenerateTableWithColumn(table1Data, tableName: "table1");
+        kustoDatabase.AddTable(table1);
+
+        HashSet<int> table2Data = [4, 5, 6, 7];
+        Table table2 = TestUtils.GenerateTableWithColumn(table2Data, tableName: "table2");
+        kustoDatabase.AddTable(table2);
+
+        List<int> actualData1 = TestUtils.ExecuteAndGetDataForOneColumn<int>(
+            TestUtils.GetColumnNane(table1), kustoDatabase, table1.Name);
+        Assert.That(actualData1, Is.EquivalentTo(table1Data));
+
+        List<int> actualData2 = TestUtils.ExecuteAndGetDataForOneColumn<int>(
+            TestUtils.GetColumnNane(table2), kustoDatabase, table2.Name);
+        Assert.That(actualData2, Is.EquivalentTo(table2Data));
     }
 
     private static Table BuildTestTable()
@@ -85,7 +135,7 @@ public class KustoDatabaseTests
             ["StartTime"] = new DateTime(2025, 8, 23, 6, 20, 0),
             ["State"] = "FLORIDA",
             ["EventType"] = "Hurricane",
-            ["DamageProperty"] = 20000,
+            ["DamageProperty"] = 20000
         });
 
         stormEvents.AddRow(new Dictionary<string, object?>
@@ -93,7 +143,7 @@ public class KustoDatabaseTests
             ["StartTime"] = new DateTime(2023, 3, 28, 10, 30, 0),
             ["State"] = "TEXAS",
             ["EventType"] = "Flood",
-            ["DamageProperty"] = 5000,
+            ["DamageProperty"] = 5000
         });
 
         stormEvents.AddRow(new Dictionary<string, object?>
@@ -101,7 +151,7 @@ public class KustoDatabaseTests
             ["StartTime"] = new DateTime(2024, 6, 1, 16, 50, 30),
             ["State"] = "FLORIDA",
             ["EventType"] = "Tornado",
-            ["DamageProperty"] = 5000,
+            ["DamageProperty"] = 5000
         });
 
         return stormEvents;

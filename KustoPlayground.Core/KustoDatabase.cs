@@ -76,11 +76,11 @@ public class KustoDatabase
         }
         catch (Exception ex)
         {
-            return new ExecutionResult()
+            return new ExecutionResult
             {
                 ExecutionErrors =
                 [
-                    new ExecutionError()
+                    new ExecutionError
                     {
                         Code = nameof(ExecutionError.ErrorCodes.InternalError),
                         Description = ex.Message
@@ -128,19 +128,23 @@ public class KustoDatabase
         switch (expr)
         {
             case NameReference nameRef:
+            {
                 if (_tables.TryGetValue(nameRef.Name.SimpleName, out Table? table))
                 {
                     return table.Rows.Select(row => new Dictionary<string, object?>(row._values));
                 }
 
                 throw new InvalidOperationException($"Unknown table: {nameRef.Name}");
-
+            }
             case PipeExpression pipe:
+            {
                 var left = ExecuteExpression(pipe.Expression);
                 return ApplyOperator(left, pipe.Operator);
-
+            }
             default:
+            {
                 throw new NotSupportedException($"Unsupported expression type: {expr.GetType().Name}");
+            }
         }
     }
 
@@ -185,8 +189,16 @@ public class KustoDatabase
                 return EvaluateBinary(be, row);
 
             case NameReference nameRef:
+            {
+                object? propValue = GetPropValue(row, nameRef.Name.SimpleName);
+                if (propValue is bool b)
+                {
+                    return b;
+                }
+                
                 // Interpret bare property as truthy/non-null
-                return GetPropValue(row, nameRef.Name.SimpleName) != null;
+                return propValue != null;
+            }
 
             case LiteralExpression lit:
                 return (bool)ParseLiteral(lit);
@@ -210,33 +222,108 @@ public class KustoDatabase
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return Equals(left, right);
+                return AreEqual(left, right);
             }
 
             case SyntaxKind.NotEqualExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return !Equals(left, right);
+                return !AreEqual(left, right);
             }
 
             case SyntaxKind.GreaterThanExpression:
             {
-                var left = Convert.ToDouble(EvalOperand(be.Left, row), CultureInfo.InvariantCulture);
-                var right = Convert.ToDouble(EvalOperand(be.Right, row), CultureInfo.InvariantCulture);
-                return left > right;
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return Compare(left, right) > 0;
+            }
+
+            case SyntaxKind.GreaterThanOrEqualExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return Compare(left, right) >= 0;
             }
 
             case SyntaxKind.LessThanExpression:
             {
-                var left = Convert.ToDouble(EvalOperand(be.Left, row), CultureInfo.InvariantCulture);
-                var right = Convert.ToDouble(EvalOperand(be.Right, row), CultureInfo.InvariantCulture);
-                return left < right;
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return Compare(left, right) < 0;
+            }
+
+            case SyntaxKind.LessThanOrEqualExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return Compare(left, right) <= 0;
             }
 
             default:
                 throw new NotSupportedException($"Unsupported binary expression: {be.Kind}");
         }
+    }
+
+    private static bool AreEqual(object? left, object? right)
+    {
+        if (left == null && right == null)
+        {
+            return true;
+        }
+
+        if (left == null || right == null)
+        {
+            return false;
+        }
+
+        if (IsNumeric(left) && IsNumeric(right))
+        {
+            return Convert.ToDouble(left, CultureInfo.InvariantCulture) ==
+                   Convert.ToDouble(right, CultureInfo.InvariantCulture);
+        }
+
+        if (left is string ls && right is string rs)
+        {
+            return string.Equals(ls, rs, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return left.Equals(right);
+    }
+
+    private static int Compare(object? left, object? right)
+    {
+        if (left == null || right == null)
+        {
+            throw new InvalidOperationException("Cannot compare null values");
+        }
+
+        if (IsNumeric(left) && IsNumeric(right))
+        {
+            var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
+            var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+            return dl.CompareTo(dr);
+        }
+
+        if (left is string ls && right is string rs)
+        {
+            return string.Compare(ls, rs, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (left is IComparable cl && right is IComparable cr && left.GetType() == right.GetType())
+        {
+            return cl.CompareTo(cr);
+        }
+
+        throw new NotSupportedException(
+            $"Cannot compare values of types {left.GetType().Name} and {right.GetType().Name}");
+    }
+
+    private static bool IsNumeric(object value)
+    {
+        return value is sbyte or byte or short or ushort
+            or int or uint or long or ulong
+            or float or double or decimal;
     }
 
     private object? EvalOperand(Expression expr, Dictionary<string, object?> row)
@@ -245,6 +332,28 @@ public class KustoDatabase
         {
             case NameReference nr:
                 return GetPropValue(row, nr.Name.SimpleName);
+            case PrefixUnaryExpression pue:
+                object operand = EvalOperand(pue.Expression, row) ??
+                                 throw new ArgumentException($"operand is null for PrefixUnaryExpression: {pue.Kind}");
+                switch (pue.Operator.Kind)
+                {
+                    case SyntaxKind.MinusToken:
+                        if (operand is int i) return -i;
+                        if (operand is long l) return -l;
+                        if (operand is double d) return -d;
+                        if (operand is float f) return -f;
+                        throw new NotSupportedException($"Unary - not supported for {operand.GetType().Name}");
+
+                    case SyntaxKind.PlusToken: // +x
+                        return operand; // no-op
+
+                    case SyntaxKind.BangToken: // !x
+                        if (operand is bool b) return !b;
+                        throw new NotSupportedException($"Unary ! not supported for {operand.GetType().Name}");
+
+                    default:
+                        throw new NotSupportedException($"Unsupported prefix operator: {pue.Operator.Kind}");
+                }
             case LiteralExpression lit:
                 return ParseLiteral(lit);
             case BinaryExpression be:
@@ -316,6 +425,16 @@ public class KustoDatabase
         if (lit.Kind == SyntaxKind.StringLiteralExpression)
         {
             return text.Trim('\'', '"');
+        }
+
+        if (lit.Kind == SyntaxKind.LongLiteralExpression)
+        {
+            return long.Parse(text, CultureInfo.InvariantCulture);
+        }
+
+        if (lit.Kind == SyntaxKind.BooleanLiteralExpression)
+        {
+            return bool.Parse(text);
         }
 
         if (lit.Kind == SyntaxKind.IntLiteralExpression)
