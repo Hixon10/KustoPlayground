@@ -1,10 +1,16 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text.Json.Serialization;
 using Kusto.Language;
 using Kusto.Language.Syntax;
 
 namespace KustoPlayground.Core;
+
+[JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default)]
+[JsonSerializable(typeof(ExecutionResult))]
+[JsonSerializable(typeof(ExecutionError))]
+public partial class ExecutionResultJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// Represents the result of a query execution.

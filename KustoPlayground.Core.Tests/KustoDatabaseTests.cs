@@ -1,10 +1,110 @@
-﻿namespace KustoPlayground.Core.Tests;
+﻿using System.Text.Json;
+
+namespace KustoPlayground.Core.Tests;
 
 public class KustoDatabaseTests
 {
     [SetUp]
     public void Setup()
     {
+    }
+
+    [Test]
+    public void ExecutionResultJsonContextTest()
+    {
+        var executionResult = new ExecutionResult
+        {
+            ExecutionErrors =
+            [
+                new ExecutionError()
+                {
+                    Code = nameof(ExecutionError.ErrorCodes.UnknownTable),
+                    Description = "Error Description"
+                },
+                new ExecutionError()
+                {
+                    Code = nameof(ExecutionError.ErrorCodes.InternalError)
+                }
+            ],
+            ResultRows = new List<Dictionary<string, object?>>
+            {
+                new()
+                {
+                    { "column1", 3 },
+                    { "column2", "string 2" }
+                },
+                new()
+                {
+                    { "column1", 4 },
+                }
+            }
+        };
+
+        string serialize = JsonSerializer.Serialize(executionResult);
+        Assert.That(string.IsNullOrEmpty(serialize), Is.False);
+
+        string json = """
+                      {
+                        "ResultRows": [
+                          {
+                            "column1": 3,
+                            "column2": "string 2"
+                          },
+                          {
+                            "column1": 4
+                          }
+                        ],
+                        "ExecutionErrors": [
+                          {
+                            "Code": "UnknownTable",
+                            "Description": "Error Description"
+                          },
+                          {
+                            "Code": "InternalError"
+                          }
+                        ]
+                      }        
+                      """;
+
+        ExecutionResult? deserialize = JsonSerializer.Deserialize<ExecutionResult>(json);
+        AssertExecutionResult(deserialize);
+
+        ExecutionResult? deserialize2 =
+            JsonSerializer.Deserialize<ExecutionResult>(json, ExecutionResultJsonContext.Default.ExecutionResult);
+        AssertExecutionResult(deserialize2);
+        return;
+
+        static void AssertExecutionResult(ExecutionResult? result)
+        {
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.ResultRows!, Has.Count.EqualTo(2));
+
+            IReadOnlyDictionary<string, object?> row1;
+            IReadOnlyDictionary<string, object?> row2;
+
+            IReadOnlyDictionary<string, object?> firstRow = result.ResultRows[0];
+            IReadOnlyDictionary<string, object?> lastRow = result.ResultRows[1];
+            if (((JsonElement)firstRow["column1"]!).GetInt32() == 3)
+            {
+                row1 = firstRow;
+                row2 = lastRow;
+            }
+            else
+            {
+                row1 = lastRow;
+                row2 = firstRow;
+            }
+
+            Assert.That(((JsonElement)row1["column1"]!).GetInt32(), Is.EqualTo(3));
+            Assert.That(((JsonElement)row1["column2"]!).GetString(), Is.EqualTo("string 2"));
+            Assert.That(((JsonElement)row2["column1"]!).GetInt32(), Is.EqualTo(4));
+            
+            Assert.That(result.ExecutionErrors!, Has.Count.EqualTo(2));
+            Assert.That(result.ExecutionErrors[0].Code, Is.EqualTo("UnknownTable"));
+            Assert.That(result.ExecutionErrors[0].Description, Is.EqualTo("Error Description"));
+            Assert.That(result.ExecutionErrors[1].Code, Is.EqualTo("InternalError"));
+            Assert.That(result.ExecutionErrors[1].Description, Is.Null);
+        }
     }
 
     [Test]
