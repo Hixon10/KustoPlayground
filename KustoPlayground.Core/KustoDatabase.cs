@@ -187,157 +187,61 @@ public class KustoDatabase
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return AreEqual(left, right);
+                return CompareUtils.AreEqual(left, right);
             }
 
             case SyntaxKind.NotEqualExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return !AreEqual(left, right);
+                return !CompareUtils.AreEqual(left, right);
             }
 
             case SyntaxKind.GreaterThanExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return Compare(left, right) > 0;
+                return CompareUtils.Compare(left, right) > 0;
             }
 
             case SyntaxKind.GreaterThanOrEqualExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return Compare(left, right) >= 0;
+                return CompareUtils.Compare(left, right) >= 0;
             }
 
             case SyntaxKind.LessThanExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return Compare(left, right) < 0;
+                return CompareUtils.Compare(left, right) < 0;
             }
 
             case SyntaxKind.LessThanOrEqualExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return Compare(left, right) <= 0;
+                return CompareUtils.Compare(left, right) <= 0;
             }
 
             case SyntaxKind.ContainsExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return ContainsOperation(left, right);
+                return StringOperations.ContainsOperation(left, right);
             }
-            
+
             case SyntaxKind.NotContainsExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return !ContainsOperation(left, right);
+                return !StringOperations.ContainsOperation(left, right);
             }
 
             default:
                 throw new NotSupportedException($"Unsupported binary expression: {be.Kind}");
         }
-    }
-
-    private static bool ContainsOperation(object? left, object? right)
-    {
-        if (left is not string ls)
-        {
-            throw new NotSupportedException(
-                "contains operation requires left operand to be a string, and it is not.");
-        }
-
-        if (right is not string rs)
-        {
-            throw new NotSupportedException(
-                "contains operation requires right operand to be a string, and it is not.");
-        }
-
-        return ls.Contains(rs, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool AreEqual(object? left, object? right)
-    {
-        if (left == null && right == null)
-        {
-            return true;
-        }
-
-        if (left == null || right == null)
-        {
-            return false;
-        }
-
-        if (IsNumeric(left) && IsNumeric(right))
-        {
-            return Convert.ToDouble(left, CultureInfo.InvariantCulture) ==
-                   Convert.ToDouble(right, CultureInfo.InvariantCulture);
-        }
-
-        if (IsNumeric(left) && right is string rightStr)
-        {
-            // if query tries to compare number, and "number2", we should allow it.
-            if (double.TryParse(rightStr, CultureInfo.InvariantCulture, out double rightRes))
-            {
-                return Convert.ToDouble(left, CultureInfo.InvariantCulture) == rightRes;
-            }
-        }
-
-        if (left is string leftString && IsNumeric(right))
-        {
-            // if query tries to compare "number", and number2, we should allow it.
-            if (double.TryParse(leftString, CultureInfo.InvariantCulture, out double leftRes))
-            {
-                return leftRes == Convert.ToDouble(right, CultureInfo.InvariantCulture);
-            }
-        }
-
-        if (left is string ls && right is string rs)
-        {
-            return string.Equals(ls, rs, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return left.Equals(right);
-    }
-
-    private static int Compare(object? left, object? right)
-    {
-        if (left == null || right == null)
-        {
-            throw new InvalidOperationException("Cannot compare null values");
-        }
-
-        if (IsNumeric(left) && IsNumeric(right))
-        {
-            var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-            var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-            return dl.CompareTo(dr);
-        }
-
-        if (left is string ls && right is string rs)
-        {
-            return string.Compare(ls, rs, StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (left is IComparable cl && right is IComparable cr && left.GetType() == right.GetType())
-        {
-            return cl.CompareTo(cr);
-        }
-
-        throw new NotSupportedException(
-            $"Cannot compare values of types {left.GetType().Name} and {right.GetType().Name}");
-    }
-
-    private static bool IsNumeric(object value)
-    {
-        return value is sbyte or byte or short or ushort
-            or int or uint or long or ulong
-            or float or double or decimal;
     }
 
     private object? EvalOperand(Expression expr, Dictionary<string, object?> row)
