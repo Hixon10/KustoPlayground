@@ -81,11 +81,11 @@ public class WhereSmokeTests
     }
 
     [Test]
-    public void WhereStringTypeSmokeTest()
+    public void WhereStringTypeCaseSensitiveSmokeTest()
     {
         KustoDatabase kustoDatabase = new KustoDatabase();
 
-        List<string> tableRows = ["green", "red", "blue", "red"];
+        List<string> tableRows = ["green", "Red", "blue", "red"];
         const string columnName = "column1";
         Table table = TestUtils.GenerateTableWithColumn(
             tableRows, tableName: "table1", columnName: columnName);
@@ -98,13 +98,23 @@ public class WhereSmokeTests
 
         actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
             kustoDatabase,
+            "table1 | where column1 == \"Red\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
             "table1 | where column1 == \"red\"");
-        Assert.That(actualData, Is.EquivalentTo(new List<string> { "red", "red" }));
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "red" }));
 
         actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
             kustoDatabase,
             "table1 | where column1 != \"red\"");
-        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "green", "blue" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 != \"Red\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "red", "green", "blue" }));
 
         actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
             kustoDatabase,
@@ -114,7 +124,54 @@ public class WhereSmokeTests
         actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
             kustoDatabase,
             "table1 | where column1 != \"green\"");
-        Assert.That(actualData, Is.EquivalentTo(new List<string> { "red", "blue", "red" }));
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "blue", "red" }));
+    }
+
+    [Test]
+    public void WhereStringTypeCaseInsensitiveSmokeTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        List<string> tableRows = ["green", "Red", "blue", "red"];
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(
+            tableRows, tableName: "table1", columnName: columnName);
+        kustoDatabase.AddTable(table);
+
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 =~ \"orange\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 =~ \"red\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "red" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 =~ \"RED\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "red" }));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 !~ \"red\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 !~ \"RED\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 =~ \"green\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 !~ \"green\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "blue", "red" }));
     }
 
     [Test]

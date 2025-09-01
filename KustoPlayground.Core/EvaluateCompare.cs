@@ -4,7 +4,7 @@ namespace KustoPlayground.Core;
 
 internal static class CompareUtils
 {
-    internal static bool AreEqual(object? left, object? right)
+    internal static bool AreEqual(object? left, object? right, StringComparison comparisonType)
     {
         if (left == null && right == null)
         {
@@ -42,7 +42,7 @@ internal static class CompareUtils
 
         if (left is string ls && right is string rs)
         {
-            return string.Equals(ls, rs, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(ls, rs, comparisonType);
         }
 
         return left.Equals(right);

@@ -187,14 +187,28 @@ public class KustoDatabase
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return CompareUtils.AreEqual(left, right);
+                return CompareUtils.AreEqual(left, right, StringComparison.Ordinal);
+            }
+
+            case SyntaxKind.EqualTildeExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase);
             }
 
             case SyntaxKind.NotEqualExpression:
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                return !CompareUtils.AreEqual(left, right);
+                return !CompareUtils.AreEqual(left, right, StringComparison.Ordinal);
+            }
+
+            case SyntaxKind.BangTildeExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return !CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase);
             }
 
             case SyntaxKind.GreaterThanExpression:
@@ -238,7 +252,7 @@ public class KustoDatabase
                 var right = EvalOperand(be.Right, row);
                 return !StringOperations.ContainsOperation(left, right);
             }
-            
+
             case SyntaxKind.StartsWithExpression:
             {
                 var left = EvalOperand(be.Left, row);
