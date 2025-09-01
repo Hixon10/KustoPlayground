@@ -238,6 +238,20 @@ public class KustoDatabase
                 var right = EvalOperand(be.Right, row);
                 return !StringOperations.ContainsOperation(left, right);
             }
+            
+            case SyntaxKind.StartsWithExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return StringOperations.StartsWithOperation(left, right);
+            }
+
+            case SyntaxKind.NotStartsWithExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return !StringOperations.StartsWithOperation(left, right);
+            }
 
             default:
                 throw new NotSupportedException($"Unsupported binary expression: {be.Kind}");
