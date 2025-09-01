@@ -225,9 +225,40 @@ public class KustoDatabase
                 return Compare(left, right) <= 0;
             }
 
+            case SyntaxKind.ContainsExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return ContainsOperation(left, right);
+            }
+            
+            case SyntaxKind.NotContainsExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return !ContainsOperation(left, right);
+            }
+
             default:
                 throw new NotSupportedException($"Unsupported binary expression: {be.Kind}");
         }
+    }
+
+    private static bool ContainsOperation(object? left, object? right)
+    {
+        if (left is not string ls)
+        {
+            throw new NotSupportedException(
+                "contains operation requires left operand to be a string, and it is not.");
+        }
+
+        if (right is not string rs)
+        {
+            throw new NotSupportedException(
+                "contains operation requires right operand to be a string, and it is not.");
+        }
+
+        return ls.Contains(rs, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool AreEqual(object? left, object? right)
