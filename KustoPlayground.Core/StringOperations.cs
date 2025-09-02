@@ -2,6 +2,23 @@ namespace KustoPlayground.Core;
 
 internal static class StringOperations
 {
+    internal static bool EndsWithOperation(object? left, object? right)
+    {
+        if (left is not string ls)
+        {
+            throw new NotSupportedException(
+                "endswith operation requires left operand to be a string, and it is not.");
+        }
+
+        if (right is not string rs)
+        {
+            throw new NotSupportedException(
+                "endswith operation requires right operand to be a string, and it is not.");
+        }
+
+        return ls.EndsWith(rs, StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static bool StartsWithOperation(object? left, object? right)
     {
         if (left is not string ls)
@@ -18,7 +35,7 @@ internal static class StringOperations
 
         return ls.StartsWith(rs, StringComparison.OrdinalIgnoreCase);
     }
-    
+
     internal static bool ContainsOperation(object? left, object? right)
     {
         if (left is not string ls)

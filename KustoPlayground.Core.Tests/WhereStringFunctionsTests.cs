@@ -3,6 +3,78 @@ namespace KustoPlayground.Core.Tests;
 public class WhereStringFunctionsTests
 {
     [Test]
+    public void WhereStringEndsWithSmokeTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        List<string> tableRows = ["green", "reD", "blue", "red"];
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(
+            tableRows, tableName: "table1", columnName: columnName);
+        kustoDatabase.AddTable(table);
+
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"abc\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"re\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"bluee\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 !endswith \"bluee\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "blue", "red" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"bblue\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 !endswith \"bblue\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "blue", "red" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"D\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD", "red" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"d\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD", "red" }));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"eD\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD", "red" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 !endswith \"D\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 !endswith \"d\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 endswith \"blue\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "blue" }));
+    }
+
+    [Test]
     public void WhereStringStartsWithSmokeTest()
     {
         KustoDatabase kustoDatabase = new KustoDatabase();
