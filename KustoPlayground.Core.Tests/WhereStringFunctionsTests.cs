@@ -3,6 +3,53 @@ namespace KustoPlayground.Core.Tests;
 public class WhereStringFunctionsTests
 {
     [Test]
+    public void WhereStringMatchesRegexSmokeTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+
+        List<string> tableRows = ["green", "reD", "blue", "red"];
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(
+            tableRows, tableName: "table1", columnName: columnName);
+        kustoDatabase.AddTable(table);
+
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 matches regex \"abc\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string>()));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 matches regex \"green\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 matches regex \"red\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "red" }));
+
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 matches regex \"re*\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "red", "reD" }));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 matches regex \"r*eD\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD" }));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 matches regex \"e*\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "blue", "red" }));
+        
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+            kustoDatabase,
+            "table1 | where column1 matches regex \"e.\"");
+        Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "red" }));
+    }
+
+    [Test]
     public void WhereStringEndsWithSmokeTest()
     {
         KustoDatabase kustoDatabase = new KustoDatabase();
@@ -52,7 +99,7 @@ public class WhereStringFunctionsTests
             kustoDatabase,
             "table1 | where column1 endswith \"d\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD", "red" }));
-        
+
         actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
             kustoDatabase,
             "table1 | where column1 endswith \"eD\"");

@@ -280,6 +280,13 @@ public class KustoDatabase
                 var right = EvalOperand(be.Right, row);
                 return !StringOperations.EndsWithOperation(left, right);
             }
+            
+            case SyntaxKind.MatchesRegexExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                return StringOperations.MatchesRegexExpressionOperation(left, right);
+            }
 
             default:
                 throw new NotSupportedException($"Unsupported binary expression: {be.Kind}");

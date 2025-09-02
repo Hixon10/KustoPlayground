@@ -1,7 +1,26 @@
+using System.Text.RegularExpressions;
+
 namespace KustoPlayground.Core;
 
 internal static class StringOperations
 {
+    internal static bool MatchesRegexExpressionOperation(object? left, object? right)
+    {
+        if (left is not string ls)
+        {
+            throw new NotSupportedException(
+                "endswith operation requires left operand to be a string, and it is not.");
+        }
+
+        if (right is not string rs)
+        {
+            throw new NotSupportedException(
+                "endswith operation requires right operand to be a string, and it is not.");
+        }
+
+        return Regex.IsMatch(ls, rs);
+    }
+
     internal static bool EndsWithOperation(object? left, object? right)
     {
         if (left is not string ls)
