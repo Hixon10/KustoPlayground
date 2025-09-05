@@ -42,8 +42,9 @@ public class KustoDatabaseTests
 
         string serialize = JsonSerializer.Serialize(executionResult);
         Assert.That(string.IsNullOrEmpty(serialize), Is.False);
-        
-        string serialize2 = JsonSerializer.Serialize(executionResult, ExecutionResultJsonContext.Default.ExecutionResult);
+
+        string serialize2 =
+            JsonSerializer.Serialize(executionResult, ExecutionResultJsonContext.Default.ExecutionResult);
         Assert.That(string.IsNullOrEmpty(serialize2), Is.False);
 
         string json = """
@@ -101,7 +102,7 @@ public class KustoDatabaseTests
             Assert.That(((JsonElement)row1["column1"]!).GetInt32(), Is.EqualTo(3));
             Assert.That(((JsonElement)row1["column2"]!).GetString(), Is.EqualTo("string 2"));
             Assert.That(((JsonElement)row2["column1"]!).GetInt32(), Is.EqualTo(4));
-            
+
             Assert.That(result.ExecutionErrors!, Has.Count.EqualTo(2));
             Assert.That(result.ExecutionErrors[0].Code, Is.EqualTo("UnknownTable"));
             Assert.That(result.ExecutionErrors[0].Description, Is.EqualTo("Error Description"));
@@ -141,6 +142,38 @@ public class KustoDatabaseTests
         var results = kustoDatabase.ExecuteQuery(query);
         Assert.That(results.ExecutionErrors, Is.Null);
         Assert.That(results.ResultRows!, Is.Empty);
+    }
+
+    [Test]
+    public void ExtendOperatorSmokeTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+        kustoDatabase.AddTable(BuildTestTable());
+
+        // CopyState is new column, EventType we should override old value
+        string query = @"StormEvents
+            | extend CopyState = State, EventType = State, EncodedStr = base64_encode_tostring(State)
+            | extend CopyState2 = State
+        ";
+
+        var results = kustoDatabase.ExecuteQuery(query);
+        Assert.That(results.ExecutionErrors, Is.Null);
+
+        Dictionary<string, string> expectedBase64Encode = new Dictionary<string, string>()
+        {
+            { "FLORIDA", "RkxPUklEQQ==" },
+            { "TEXAS", "VEVYQVM=" }
+        };
+
+        foreach (IReadOnlyDictionary<string, object?> row in results.ResultRows!)
+        {
+            string state = (string)row["State"]!;
+            Assert.That((string)row["CopyState"]!, Is.EqualTo(state));
+            Assert.That((string)row["EventType"]!, Is.EqualTo(state));
+            Assert.That((string)row["EncodedStr"]!, Is.EqualTo(expectedBase64Encode[state]));
+
+            Assert.That((string)row["CopyState2"]!, Is.EqualTo(state));
+        }
     }
 
     [Test]

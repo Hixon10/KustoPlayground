@@ -19,3 +19,13 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [!endswith](https://learn.microsoft.com/en-us/kusto/query/not-endswith-operator)
 - [matches regex](https://learn.microsoft.com/en-us/kusto/query/matches-regex-operator)
 - `==`, `=~`, `!=`, `!~`
+
+## Supported Tabular operators:
+- [extend](https://learn.microsoft.com/en-us/kusto/query/extend-operator)
+- [project](https://learn.microsoft.com/en-us/kusto/query/project-operator)
+- [take](https://learn.microsoft.com/en-us/kusto/query/take-operator)
+- [where](https://learn.microsoft.com/en-us/kusto/query/where-operator)
+
+## Supported Scalar functions:
+- [base64_decode_tostring](https://learn.microsoft.com/en-us/kusto/query/base64-decode-tostring-function)
+- [base64_encode_tostring](https://learn.microsoft.com/en-us/kusto/query/base64-encode-tostring-function)

@@ -128,6 +128,9 @@ public class KustoDatabase
             case TakeOperator take:
                 return ApplyTake(source, take);
 
+            case ExtendOperator extend:
+                return ApplyExtend(source, extend);
+
             default:
                 throw new NotSupportedException($"Unsupported operator: {op.GetType().Name}");
         }
@@ -280,7 +283,7 @@ public class KustoDatabase
                 var right = EvalOperand(be.Right, row);
                 return !StringOperations.EndsWithOperation(left, right);
             }
-            
+
             case SyntaxKind.MatchesRegexExpression:
             {
                 var left = EvalOperand(be.Left, row);
@@ -325,9 +328,26 @@ public class KustoDatabase
                 return ParseLiteral(lit);
             case BinaryExpression be:
                 return EvaluateCondition(be, row); // only if nested boolean expression
+            case FunctionCallExpression fce:
+                return EvaluateFunction(fce, row);
             default:
                 throw new NotSupportedException($"Unsupported operand: {expr.GetType().Name}");
         }
+    }
+
+    private string EvaluateFunction(FunctionCallExpression fce, Dictionary<string, object?> row)
+    {
+        object?[] args = fce.ArgumentList.Expressions
+            .Select(expression => EvalOperand(expression.Element, row))
+            .ToArray();
+        string functionName = fce.Name.SimpleName;
+
+        return functionName switch
+        {
+            "base64_encode_tostring" => FunctionExpressions.Base64EncodeToString(args),
+            "base64_decode_tostring" => FunctionExpressions.Base64DecodeToString(args),
+            _ => throw new NotImplementedException($"Function {functionName} not implemented.")
+        };
     }
 
     private static IEnumerable<Dictionary<string, object?>> ApplyProject(
@@ -335,7 +355,7 @@ public class KustoDatabase
         ProjectOperator project)
     {
         // unwrap SeparatedElement<Expression> → Expression
-        var exprs = project.Expressions.Select(se => se.Element);
+        IEnumerable<Expression> exprs = project.Expressions.Select(se => se.Element);
 
         // often NameReference, but can also be SimpleNamedExpression (alias = expr)
         IEnumerable<(string Alias, NameReference Expr)> props = exprs.Select(e =>
@@ -366,6 +386,39 @@ public class KustoDatabase
 
             return dict;
         });
+    }
+
+    private IEnumerable<Dictionary<string, object?>> ApplyExtend(
+        IEnumerable<Dictionary<string, object?>> source,
+        ExtendOperator extend)
+    {
+        foreach (Dictionary<string, object?> row in source)
+        {
+            foreach (Expression expression in extend.Expressions.Select(se => se.Element))
+            {
+                string columnName;
+                Expression nameReference;
+                if (expression is NameReference nr)
+                {
+                    columnName = nr.Name.SimpleName;
+                    nameReference = nr;
+                }
+                else if (expression is SimpleNamedExpression sne)
+                {
+                    columnName = sne.Name.SimpleName;
+                    nameReference = sne.Expression;
+                }
+                else
+                {
+                    throw new NotSupportedException($"Unsupported project expression: {expression.GetType().Name}");
+                }
+
+                object? newValue = EvalOperand(nameReference, row);
+                row[columnName] = newValue;
+            }
+
+            yield return row;
+        }
     }
 
     private static IEnumerable<Dictionary<string, object?>> ApplyTake(
