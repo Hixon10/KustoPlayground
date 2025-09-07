@@ -43,14 +43,14 @@ public class KustoDatabase
         {
             return new ExecutionResult
             {
-                ExecutionErrors =
-                [
-                    new ExecutionError
+                ExecutionErrors = new List<ExecutionError>
+                {
+                    new()
                     {
                         Code = nameof(ExecutionError.ErrorCodes.InternalError),
                         Description = ex.Message
                     }
-                ]
+                }
             };
         }
     }
@@ -130,6 +130,9 @@ public class KustoDatabase
 
             case ExtendOperator extend:
                 return ApplyExtend(source, extend);
+
+            case SortOperator sort:
+                return ApplySort(source, sort);
 
             default:
                 throw new NotSupportedException($"Unsupported operator: {op.GetType().Name}");
@@ -346,7 +349,7 @@ public class KustoDatabase
         {
             "base64_encode_tostring" => FunctionExpressions.Base64EncodeToString(args),
             "base64_decode_tostring" => FunctionExpressions.Base64DecodeToString(args),
-            _ => throw new NotImplementedException($"Function {functionName} not implemented.")
+            _ => throw new NotSupportedException($"Function {functionName} not implemented.")
         };
     }
 
@@ -386,6 +389,71 @@ public class KustoDatabase
 
             return dict;
         });
+    }
+
+    private static IEnumerable<Dictionary<string, object?>> ApplySort(
+        IEnumerable<Dictionary<string, object?>> source,
+        SortOperator sort)
+    {
+        if (sort.Expressions.Count == 0)
+        {
+            return source; // nothing to sort by
+        }
+
+        // not sure, should we materialize source here,
+        // or it is fine to iterate over source several times,
+        // when we have several sort columns.
+        List<Dictionary<string, object?>> sourceCopy = source.ToList();
+
+        IOrderedEnumerable<Dictionary<string, object?>>? ordered = null;
+
+        foreach (var exprElement in sort.Expressions)
+        {
+            Expression? expr = exprElement.Element;
+
+            bool descending = true;
+            if (expr is OrderedExpression oexp)
+            {
+                descending = oexp.Ordering.AscOrDescKeyword.Kind == SyntaxKind.DescKeyword;
+            }
+
+            Func<Dictionary<string, object?>, object?> keySelector = row =>
+            {
+                if (expr is NameReference nameRef)
+                {
+                    return row.GetValueOrDefault(nameRef.Name.SimpleName);
+                }
+
+                if (expr is SimpleNamedExpression sne && sne.Expression is NameReference)
+                {
+                    return row.GetValueOrDefault(sne.Name.SimpleName);
+                }
+
+                if (expr is OrderedExpression oe && oe.Expression is NameReference orderedInner)
+                {
+                    return row.GetValueOrDefault(orderedInner.Name.SimpleName);
+                }
+
+                throw new NotSupportedException($"Expression {expr} not supported in sort.");
+            };
+
+            Comparer<object?> comparer = Comparer<object?>.Create(CompareUtils.Compare);
+
+            if (ordered == null)
+            {
+                ordered = descending
+                    ? sourceCopy.OrderByDescending(keySelector, comparer)
+                    : sourceCopy.OrderBy(keySelector, comparer);
+            }
+            else
+            {
+                ordered = descending
+                    ? ordered.ThenByDescending(keySelector, comparer)
+                    : ordered.ThenBy(keySelector, comparer);
+            }
+        }
+
+        return ordered ?? source;
     }
 
     private IEnumerable<Dictionary<string, object?>> ApplyExtend(

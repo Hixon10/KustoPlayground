@@ -25,6 +25,7 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [project](https://learn.microsoft.com/en-us/kusto/query/project-operator)
 - [take](https://learn.microsoft.com/en-us/kusto/query/take-operator)
 - [where](https://learn.microsoft.com/en-us/kusto/query/where-operator)
+- [sort](https://learn.microsoft.com/en-us/kusto/query/sort-operator)
 
 ## Supported Scalar functions:
 - [base64_decode_tostring](https://learn.microsoft.com/en-us/kusto/query/base64-decode-tostring-function)

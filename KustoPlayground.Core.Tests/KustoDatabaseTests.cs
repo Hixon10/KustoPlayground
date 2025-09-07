@@ -16,12 +16,12 @@ public class KustoDatabaseTests
         {
             ExecutionErrors =
             [
-                new ExecutionError()
+                new ExecutionError
                 {
                     Code = nameof(ExecutionError.ErrorCodes.UnknownTable),
                     Description = "Error Description"
                 },
-                new ExecutionError()
+                new ExecutionError
                 {
                     Code = nameof(ExecutionError.ErrorCodes.InternalError)
                 }
@@ -35,7 +35,7 @@ public class KustoDatabaseTests
                 },
                 new()
                 {
-                    { "column1", 4 },
+                    { "column1", 4 }
                 }
             }
         };
@@ -159,7 +159,7 @@ public class KustoDatabaseTests
         var results = kustoDatabase.ExecuteQuery(query);
         Assert.That(results.ExecutionErrors, Is.Null);
 
-        Dictionary<string, string> expectedBase64Encode = new Dictionary<string, string>()
+        Dictionary<string, string> expectedBase64Encode = new Dictionary<string, string>
         {
             { "FLORIDA", "RkxPUklEQQ==" },
             { "TEXAS", "VEVYQVM=" }
@@ -173,6 +173,111 @@ public class KustoDatabaseTests
             Assert.That((string)row["EncodedStr"]!, Is.EqualTo(expectedBase64Encode[state]));
 
             Assert.That((string)row["CopyState2"]!, Is.EqualTo(state));
+        }
+    }
+
+    [Test]
+    public void ExecuteQueryWithSortTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+        kustoDatabase.AddTable(BuildTestTable());
+
+        var florida2025 = new Dictionary<string, object?>
+        {
+            { "EventType", "Hurricane" },
+            { "StartTime", new DateTime(2025, 8, 23, 6, 20, 0) },
+            { "State", "FLORIDA" }
+        }.AsReadOnly();
+        var florida2024 = new Dictionary<string, object?>
+        {
+            { "EventType", "Tornado" },
+            { "StartTime", new DateTime(2024, 6, 1, 16, 50, 30) },
+            { "State", "FLORIDA" }
+        }.AsReadOnly();
+        var texas2023 = new Dictionary<string, object?>
+        {
+            { "EventType", "Flood" },
+            { "StartTime", new DateTime(2023, 3, 28, 10, 30, 0) },
+            { "State", "TEXAS" }
+        }.AsReadOnly();
+
+        // execute query 1
+        string query = @"StormEvents
+            | where DamageProperty > 1
+            | sort by State asc, StartTime desc
+            | project StartTime, EventType, State
+            | take 10
+        ";
+        var results = kustoDatabase.ExecuteQuery(query);
+        List<IReadOnlyDictionary<string, object?>> expected = [florida2025, florida2024, texas2023];
+        AssertResult(results, expected);
+
+        // execute query 2
+        query = @"StormEvents
+            | where DamageProperty > 1
+            | sort by State asc, StartTime asc
+            | project StartTime, EventType, State
+            | take 10
+        ";
+        results = kustoDatabase.ExecuteQuery(query);
+        expected = [florida2024, florida2025, texas2023];
+        AssertResult(results, expected);
+
+        // execute query 3
+        query = @"StormEvents
+            | where DamageProperty > 1
+            | sort by State desc, StartTime desc
+            | project StartTime, EventType, State
+            | take 10
+        ";
+        results = kustoDatabase.ExecuteQuery(query);
+        expected = [texas2023, florida2025, florida2024];
+        AssertResult(results, expected);
+
+        // execute query 4
+        query = @"StormEvents
+            | where DamageProperty > 1
+            | sort by State, StartTime
+            | project StartTime, EventType, State
+            | take 10
+        ";
+        results = kustoDatabase.ExecuteQuery(query);
+        expected = [texas2023, florida2025, florida2024];
+        AssertResult(results, expected);
+
+        // execute query 5
+        query = @"StormEvents
+            | where DamageProperty > 1
+            | sort by StartTime
+            | project StartTime, EventType, State
+            | take 10
+        ";
+        results = kustoDatabase.ExecuteQuery(query);
+        expected = [florida2025, florida2024, texas2023];
+        AssertResult(results, expected);
+
+        // execute query 6
+        query = @"StormEvents
+            | where DamageProperty > 1
+            | sort by StartTime
+            | sort by StartTime asc
+            | project StartTime, EventType, State
+            | take 10
+        ";
+        results = kustoDatabase.ExecuteQuery(query);
+        expected = [texas2023, florida2024, florida2025];
+        AssertResult(results, expected);
+
+        return;
+
+        void AssertResult(ExecutionResult executionResult, List<IReadOnlyDictionary<string, object?>> list)
+        {
+            Assert.That(executionResult.ExecutionErrors, Is.Null);
+            Assert.That(executionResult.ResultRows, Has.Count.EqualTo(list.Count));
+            for (var index = 0; index < executionResult.ResultRows.Count; index++)
+            {
+                Assert.That(executionResult.ResultRows[index], Is.EquivalentTo(list[index]));
+            }
         }
     }
 
