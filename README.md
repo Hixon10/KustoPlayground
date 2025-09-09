@@ -30,3 +30,20 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 ## Supported Scalar functions:
 - [base64_decode_tostring](https://learn.microsoft.com/en-us/kusto/query/base64-decode-tostring-function)
 - [base64_encode_tostring](https://learn.microsoft.com/en-us/kusto/query/base64-encode-tostring-function)
+
+## TODO
+- count operator
+- distinct operator
+- summarize operator (count(), dcount(), avg(), sum(), min(), max(), percentile(), percentiles())
+- bin()
+- toupper() / tolower()
+- url_decode() / url_encode()
+- strlen()
+- strcat()
+- trim()
+- toint() / tolong() / toreal() / tostring() / tobool()
+- parse operator
+- parse_json() (maybe extract_json())
+- pack_all()
+- print operator
+- everything else...
