@@ -46,4 +46,8 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - parse_json() (maybe extract_json())
 - pack_all()
 - print operator
+- in operator / !in operator
+- mv-expand operator
+- `let` statement
+- print operator
 - everything else...
