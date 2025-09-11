@@ -49,4 +49,41 @@ internal static class TestUtils
 
         return table;
     }
+
+    internal static Table BuildTestTable()
+    {
+        var startTimeCol = new Column<DateTime>("StartTime", isNullable: false);
+        var stateCol = new Column<string>("State", isNullable: false);
+        var eventTypeCol = new Column<string>("EventType", isNullable: false);
+        var damagePropertyCol = new Column<int>("DamageProperty", isNullable: false);
+
+        var stormEvents = new Table("StormEvents",
+            new ColumnBase[] { startTimeCol, stateCol, eventTypeCol, damagePropertyCol });
+
+        stormEvents.AddRow(new Dictionary<string, object?>
+        {
+            ["StartTime"] = new DateTime(2025, 8, 23, 6, 20, 0),
+            ["State"] = "FLORIDA",
+            ["EventType"] = "Hurricane",
+            ["DamageProperty"] = 20000
+        });
+
+        stormEvents.AddRow(new Dictionary<string, object?>
+        {
+            ["StartTime"] = new DateTime(2023, 3, 28, 10, 30, 0),
+            ["State"] = "TEXAS",
+            ["EventType"] = "Flood",
+            ["DamageProperty"] = 5000
+        });
+
+        stormEvents.AddRow(new Dictionary<string, object?>
+        {
+            ["StartTime"] = new DateTime(2024, 6, 1, 16, 50, 30),
+            ["State"] = "FLORIDA",
+            ["EventType"] = "Tornado",
+            ["DamageProperty"] = 5000
+        });
+
+        return stormEvents;
+    }
 }

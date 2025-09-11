@@ -294,6 +294,18 @@ public class KustoDatabase
                 return StringOperations.MatchesRegexExpressionOperation(left, right);
             }
 
+            case SyntaxKind.SubtractExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+                if (left is DateTime ldt && right is DateTime rdt)
+                {
+                    //return ldt.Subtract(rdt);
+                }
+
+                throw new NotSupportedException($"Unsupported SubtractExpression: {be.Kind}");
+            }
+
             default:
                 throw new NotSupportedException($"Unsupported binary expression: {be.Kind}");
         }
@@ -315,6 +327,7 @@ public class KustoDatabase
                         if (operand is long l) return -l;
                         if (operand is double d) return -d;
                         if (operand is float f) return -f;
+                        if (operand is TimeSpan ts) return -ts;
                         throw new NotSupportedException($"Unary - not supported for {operand.GetType().Name}");
 
                     case SyntaxKind.PlusToken: // +x
@@ -338,7 +351,7 @@ public class KustoDatabase
         }
     }
 
-    private string EvaluateFunction(FunctionCallExpression fce, Dictionary<string, object?> row)
+    private object? EvaluateFunction(FunctionCallExpression fce, Dictionary<string, object?> row)
     {
         object?[] args = fce.ArgumentList.Expressions
             .Select(expression => EvalOperand(expression.Element, row))
@@ -349,6 +362,11 @@ public class KustoDatabase
         {
             "base64_encode_tostring" => FunctionExpressions.Base64EncodeToString(args),
             "base64_decode_tostring" => FunctionExpressions.Base64DecodeToString(args),
+            "todatetime" => FunctionExpressions.ToDateTime(args),
+            "make_timespan" => FunctionExpressions.MakeTimeSpan(args),
+            "totimespan" => FunctionExpressions.ToTimeSpan(args),
+            "now" => FunctionExpressions.Now(args),
+            "ago" => FunctionExpressions.Ago(args),
             _ => throw new NotSupportedException($"Function {functionName} not implemented.")
         };
     }
@@ -533,6 +551,21 @@ public class KustoDatabase
         if (lit.Kind == SyntaxKind.RealLiteralExpression)
         {
             return double.Parse(text, CultureInfo.InvariantCulture);
+        }
+
+        if (lit.Kind == SyntaxKind.DateTimeLiteralExpression)
+        {
+            if (lit.LiteralValue == null)
+            {
+                return DateTime.UtcNow;
+            }
+
+            return (DateTime)lit.LiteralValue;
+        }
+
+        if (lit.Kind == SyntaxKind.TimespanLiteralExpression)
+        {
+            return (TimeSpan)lit.LiteralValue;
         }
 
         return text;
