@@ -30,6 +30,11 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 ## Supported Scalar functions:
 - [base64_decode_tostring](https://learn.microsoft.com/en-us/kusto/query/base64-decode-tostring-function)
 - [base64_encode_tostring](https://learn.microsoft.com/en-us/kusto/query/base64-encode-tostring-function)
+- [ago](https://learn.microsoft.com/en-us/kusto/query/ago-function)
+- [now](https://learn.microsoft.com/en-us/kusto/query/now-function)
+- [totimespan](https://learn.microsoft.com/en-us/kusto/query/totimespan-function)
+- [make_timespan](https://learn.microsoft.com/en-us/kusto/query/make-timespan-function)
+- [todatetime](https://learn.microsoft.com/en-us/kusto/query/todatetime-function)
 
 ## TODO
 - count operator
