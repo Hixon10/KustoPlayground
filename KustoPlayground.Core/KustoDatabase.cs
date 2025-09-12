@@ -145,49 +145,35 @@ public class KustoDatabase
     {
         bool Predicate(Dictionary<string, object?> row)
         {
-            bool result = EvaluateCondition(filter.Condition, row);
-            return result;
+            object? result = EvaluateCondition(filter.Condition, row);
+            return Convert.ToBoolean(result, CultureInfo.InvariantCulture);
         }
 
         return source.Where(Predicate);
     }
 
-    private bool EvaluateCondition(Expression expr, Dictionary<string, object?> row)
+    private object? EvaluateCondition(Expression expr, Dictionary<string, object?> row)
     {
-        switch (expr)
+        return expr switch
         {
-            case BinaryExpression be:
-                return EvaluateBinary(be, row);
-
-            case NameReference nameRef:
-            {
-                object? propValue = GetPropValue(row, nameRef.Name.SimpleName);
-                if (propValue is bool b)
-                {
-                    return b;
-                }
-
-                // Interpret bare property as truthy/non-null
-                return propValue != null;
-            }
-
-            case LiteralExpression lit:
-                return (bool)ParseLiteral(lit);
-
-            default:
-                throw new NotSupportedException($"Unsupported condition expression: {expr.GetType().Name}");
-        }
+            BinaryExpression be => EvaluateBinary(be, row),
+            NameReference nameRef => GetPropValue(row, nameRef.Name.SimpleName),
+            LiteralExpression lit => ParseLiteral(lit),
+            _ => throw new NotSupportedException($"Unsupported condition expression: {expr.GetType().Name}")
+        };
     }
 
-    private bool EvaluateBinary(BinaryExpression be, Dictionary<string, object?> row)
+    private object? EvaluateBinary(BinaryExpression be, Dictionary<string, object?> row)
     {
         switch (be.Kind)
         {
             case SyntaxKind.AndExpression:
-                return EvaluateCondition(be.Left, row) && EvaluateCondition(be.Right, row);
+                return Convert.ToBoolean(EvaluateCondition(be.Left, row), CultureInfo.InvariantCulture) &&
+                       Convert.ToBoolean(EvaluateCondition(be.Right, row), CultureInfo.InvariantCulture);
 
             case SyntaxKind.OrExpression:
-                return EvaluateCondition(be.Left, row) || EvaluateCondition(be.Right, row);
+                return Convert.ToBoolean(EvaluateCondition(be.Left, row), CultureInfo.InvariantCulture) ||
+                       Convert.ToBoolean(EvaluateCondition(be.Right, row), CultureInfo.InvariantCulture);
 
             case SyntaxKind.EqualExpression:
             {
@@ -298,12 +284,143 @@ public class KustoDatabase
             {
                 var left = EvalOperand(be.Left, row);
                 var right = EvalOperand(be.Right, row);
-                if (left is DateTime ldt && right is DateTime rdt)
+
+                if (left == null || right == null)
                 {
-                    //return ldt.Subtract(rdt);
+                    return null;
                 }
 
-                throw new NotSupportedException($"Unsupported SubtractExpression: {be.Kind}");
+                if (left is DateTime leftDateTime1 && right is DateTime rightDateTime1)
+                {
+                    return leftDateTime1.Subtract(rightDateTime1);
+                }
+
+                if (left is DateTime leftDateTime2 && right is TimeSpan rightTimeSpan2)
+                {
+                    return leftDateTime2.Subtract(rightTimeSpan2);
+                }
+
+                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
+                {
+                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
+                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+                    return dl - dr;
+                }
+
+                throw new NotSupportedException(
+                    $"Unsupported SubtractExpression: left={left.GetType()}, right={right.GetType()}");
+            }
+
+            case SyntaxKind.AddExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+
+                if (left == null || right == null)
+                {
+                    return null;
+                }
+
+                if (left is DateTime && right is DateTime)
+                {
+                    // Not supported as of now
+                    throw new NotSupportedException($"Unsupported AddExpression: left=DateTime, right=DateTime");
+                }
+
+                if (left is DateTime leftDateTime2 && right is TimeSpan rightTimeSpan2)
+                {
+                    return leftDateTime2.Add(rightTimeSpan2);
+                }
+
+                if (left is TimeSpan leftTimeSpan3 && right is TimeSpan rightTimeSpan3)
+                {
+                    return leftTimeSpan3.Add(rightTimeSpan3);
+                }
+
+                if (left is TimeSpan leftTimeSpan4 && right is DateTime rightDateTim4)
+                {
+                    return rightDateTim4.Add(leftTimeSpan4);
+                }
+
+                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
+                {
+                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
+                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+                    return dl + dr;
+                }
+
+                throw new NotSupportedException(
+                    $"Unsupported AddExpression: left={left.GetType()}, right={right.GetType()}");
+            }
+
+            case SyntaxKind.MultiplyExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+
+                if (left == null || right == null)
+                {
+                    return null;
+                }
+
+                if (left is TimeSpan leftTimeSpan1 && CompareUtils.IsNumeric(right))
+                {
+                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+                    return leftTimeSpan1.Multiply(dr);
+                }
+
+                if (CompareUtils.IsNumeric(left) && right is TimeSpan rightTimeSpan2)
+                {
+                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
+                    return rightTimeSpan2.Multiply(dl);
+                }
+
+                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
+                {
+                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
+                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+                    return dl * dr;
+                }
+
+                throw new NotSupportedException(
+                    $"Unsupported MultiplyExpression: left={left.GetType()}, right={right.GetType()}");
+            }
+
+            case SyntaxKind.DivideExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+
+                if (left == null || right == null)
+                {
+                    return null;
+                }
+
+                if (left is TimeSpan leftTimeSpan1 && right is TimeSpan rightTimeSpan2)
+                {
+                    return leftTimeSpan1.Divide(rightTimeSpan2);
+                }
+
+                if (left is TimeSpan leftTimeSpan2 && CompareUtils.IsNumeric(right))
+                {
+                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+                    return leftTimeSpan2.Divide(dr);
+                }
+
+                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
+                {
+                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
+                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+                    if (dr == 0.0)
+                    {
+                        return null;
+                    }
+
+                    return dl / dr;
+                }
+
+                throw new NotSupportedException(
+                    $"Unsupported DivideExpression: left={left.GetType()}, right={right.GetType()}");
             }
 
             default:

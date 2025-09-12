@@ -1,20 +1,8 @@
-using NUnit.Framework.Legacy;
-
 namespace KustoPlayground.Core.Tests;
 
 public class DateTimeTests
 {
     /// TODO
-    /// | extend Elapsed=now() - StartTime -- Find time elapsed from a given event
-    ///
-
-    /// Two values of type timespan may be added, subtracted, and divided.
-    /// The last operation returns a value of type real representing
-    /// the fractional number of times one value can fit the other.
-    /// result1 = 1d / 1s,
-    /// result2 = time(1d) / time(1s),
-    /// result3 = 24 * 60 * time(00:01:00) / time(1s)
-    ///
     /// T | where expr !between (leftRange..rightRange)
     /// T | where expr between (leftRange..rightRange)
     /// between can operate on any numeric,

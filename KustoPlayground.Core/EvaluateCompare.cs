@@ -76,7 +76,7 @@ internal static class CompareUtils
             $"Cannot compare values of types {left.GetType().Name} and {right.GetType().Name}");
     }
 
-    private static bool IsNumeric(object value)
+    internal static bool IsNumeric(object value)
     {
         return value is sbyte or byte or short or ushort
             or int or uint or long or ulong

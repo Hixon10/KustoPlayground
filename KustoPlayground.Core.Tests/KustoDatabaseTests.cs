@@ -145,6 +145,67 @@ public class KustoDatabaseTests
     }
 
     [Test]
+    public void EvaluateBinaryNumbersTest()
+    {
+        KustoDatabase kustoDatabase = new KustoDatabase();
+        kustoDatabase.AddTable(TestUtils.BuildTestTable());
+
+        string query = @"StormEvents
+            | extend Elapsed = now() - StartTime
+            | extend Elapsed3 = ago(4d) - 10d
+            | extend Elapsed4 = 10d + now()
+            | extend A = DamageProperty - 53
+            | extend B = 42.2 - 53
+            | extend C = -42.2 + 53
+            | extend D = 10 * DamageProperty
+            | extend E = DamageProperty / 0
+            | extend F = 1d / 1s
+            | extend result3 = 24 * 60 * time(00:01:00) / time(1s)
+        ";
+
+        var results = kustoDatabase.ExecuteQuery(query);
+        Assert.That(results.ExecutionErrors, Is.Null);
+
+        DateTime now = DateTime.UtcNow;
+
+        foreach (IReadOnlyDictionary<string, object?> row in results.ResultRows!)
+        {
+            Assert.That((TimeSpan)row["Elapsed"]!,
+                Is.EqualTo(now - (DateTime)row["StartTime"]!)
+                    .Within(TimeSpan.FromMinutes(1)));
+
+            var elapsed3 = (DateTime)row["Elapsed3"]!;
+            var expectedElapsed3 = now.AddDays(-14);
+            Assert.That(elapsed3, Is.EqualTo(expectedElapsed3).Within(TimeSpan.FromMinutes(1)));
+
+            var elapsed4 = (DateTime)row["Elapsed4"]!;
+            var expectedElapsed4 = now.Add(TimeSpan.FromDays(10));
+            Assert.That(elapsed4, Is.EqualTo(expectedElapsed4).Within(TimeSpan.FromMinutes(1)));
+
+            var a = (double)row["A"]!;
+            var damageProperty = (int)row["DamageProperty"]!;
+            Assert.That(a, Is.EqualTo(damageProperty - 53));
+
+            var b = (double)row["B"]!;
+            Assert.That(b, Is.EqualTo(42.2 - 53));
+
+            var c = (double)row["C"]!;
+            Assert.That(c, Is.EqualTo(-42.2 + 53));
+
+            var d = (double)row["D"]!;
+            Assert.That(d, Is.EqualTo(10 * damageProperty));
+
+            Assert.That(row["E"], Is.Null);
+            
+            var f = (double)row["F"]!;
+            Assert.That(f, Is.EqualTo(86400));
+
+            var result3 = (double)row["result3"]!;
+            Assert.That(result3, Is.EqualTo(86400));
+        }
+    }
+
+    [Test]
     public void ExtendOperatorSmokeTest()
     {
         KustoDatabase kustoDatabase = new KustoDatabase();
