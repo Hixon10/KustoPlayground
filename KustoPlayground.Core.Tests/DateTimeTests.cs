@@ -2,17 +2,6 @@ namespace KustoPlayground.Core.Tests;
 
 public class DateTimeTests
 {
-    /// TODO
-    /// T | where expr !between (leftRange..rightRange)
-    /// T | where expr between (leftRange..rightRange)
-    /// between can operate on any numeric,
-    /// datetime, or timespan expression.
-    /// leftRange - int, long, real, or datetime - inclusive
-    /// rightRange - int, long, real, datetime, or timespan - inclusive
-    ///              This value can only be of type timespan if
-    ///              expr and leftRange are both of type datetime.
-    /// return Rows in T for which the predicate of
-    ///  (expr >= leftRange and expr <= rightRange) evaluates to true.
     [Test]
     public void TimeSpanTypeTest()
     {
