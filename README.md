@@ -27,6 +27,10 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [where](https://learn.microsoft.com/en-us/kusto/query/where-operator)
 - [sort](https://learn.microsoft.com/en-us/kusto/query/sort-operator)
 
+## Supported Scalar operators:
+- [between](https://learn.microsoft.com/en-us/kusto/query/between-operator)
+- [!between](https://learn.microsoft.com/en-us/kusto/query/not-between-operator)
+
 ## Supported Scalar functions:
 - [base64_decode_tostring()](https://learn.microsoft.com/en-us/kusto/query/base64-decode-tostring-function)
 - [base64_encode_tostring()](https://learn.microsoft.com/en-us/kusto/query/base64-encode-tostring-function)

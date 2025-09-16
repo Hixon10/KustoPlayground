@@ -13,37 +13,37 @@ public class WhereStringFunctionsTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 matches regex \"abc\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 matches regex \"green\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 matches regex \"red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 matches regex \"re*\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "red", "reD" }));
         
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 matches regex \"r*eD\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD" }));
         
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 matches regex \"e*\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "blue", "red" }));
         
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 matches regex \"e.\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "red" }));
@@ -60,62 +60,62 @@ public class WhereStringFunctionsTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"abc\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"re\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"bluee\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !endswith \"bluee\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "blue", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"bblue\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !endswith \"bblue\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "reD", "blue", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"D\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"d\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"eD\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "reD", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !endswith \"D\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !endswith \"d\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 endswith \"blue\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "blue" }));
@@ -132,47 +132,47 @@ public class WhereStringFunctionsTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 startswith \"abc\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 startswith \"ed\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 startswith \"bluee\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !startswith \"bluee\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "Red", "blue", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 startswith \"R\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 startswith \"re\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !startswith \"R\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !startswith \"r\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 startswith \"blue\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "blue" }));
@@ -189,47 +189,47 @@ public class WhereStringFunctionsTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 contains \"abc\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !contains \"abc\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "Red", "blue", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 contains \"red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !contains \"red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !contains \"re\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 contains \"re\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "Red", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 contains \"e\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "Red", "blue", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 contains \"RE\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "Red", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !contains \"RE\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "blue" }));

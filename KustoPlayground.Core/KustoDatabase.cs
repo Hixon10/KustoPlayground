@@ -159,8 +159,38 @@ public class KustoDatabase
             BinaryExpression be => EvaluateBinary(be, row),
             NameReference nameRef => GetPropValue(row, nameRef.Name.SimpleName),
             LiteralExpression lit => ParseLiteral(lit),
+            BetweenExpression between => EvaluateBetweenExpression(between, row),
             _ => throw new NotSupportedException($"Unsupported condition expression: {expr.GetType().Name}")
         };
+    }
+
+    private bool EvaluateBetweenExpression(BetweenExpression between, Dictionary<string, object?> row)
+    {
+        object? left = EvalOperand(between.Right.First, row);
+        object? rowValue = EvalOperand(between.Left, row);
+        object? right = EvalOperand(between.Right.Second, row);
+
+        if (left is DateTime ldt && right is TimeSpan rsp)
+        {
+            // to support (datetime(2007-07-27) .. 3d)
+            right = ldt.Add(rsp);
+        }
+
+        if (between.Kind == SyntaxKind.BetweenExpression)
+        {
+            // (rowValue >= left and rowValue <= right)
+            return CompareUtils.Compare(left, rowValue) <= 0 &&
+                   CompareUtils.Compare(rowValue, right) <= 0;
+        }
+
+        if (between.Kind == SyntaxKind.NotBetweenExpression)
+        {
+            // (rowValue < left or rowValue > right)
+            return CompareUtils.Compare(rowValue, left) < 0 ||
+                   CompareUtils.Compare(right, rowValue) < 0;
+        }
+
+        throw new NotSupportedException($"Unsupported Between kind: {between.Kind}");
     }
 
     private object? EvaluateBinary(BinaryExpression be, Dictionary<string, object?> row)

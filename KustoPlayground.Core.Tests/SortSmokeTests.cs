@@ -13,17 +13,17 @@ public class SortSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1");
         Assert.That(actualData, Is.EqualTo(new List<string> { "3.1", "1", "1", "-2" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 desc");
         Assert.That(actualData, Is.EqualTo(new List<string> { "3.1", "1", "1", "-2" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 asc");
         Assert.That(actualData, Is.EqualTo(new List<string> { "-2", "1", "1", "3.1" }));
@@ -40,17 +40,17 @@ public class SortSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1");
         Assert.That(actualData, Is.EqualTo(new List<string> { "white", "red", "orange", "blue", "black" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 desc");
         Assert.That(actualData, Is.EqualTo(new List<string> { "white", "red", "orange", "blue", "black" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 asc");
         Assert.That(actualData, Is.EqualTo(new List<string> { "black", "blue", "orange", "red", "white" }));
@@ -67,17 +67,17 @@ public class SortSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<int> actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table),
+        List<int> actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1");
         Assert.That(actualData, Is.EqualTo(new List<int> { 10, 6, 5, 0, -1 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 desc");
         Assert.That(actualData, Is.EqualTo(new List<int> { 10, 6, 5, 0, -1 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 asc");
         Assert.That(actualData, Is.EqualTo(new List<int> { -1, 0, 5, 6, 10 }));
@@ -94,17 +94,17 @@ public class SortSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<double> actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table),
+        List<double> actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1");
         Assert.That(actualData, Is.EqualTo(new List<double> { 10.3, 6.3, 5.2, 0, -1 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 desc");
         Assert.That(actualData, Is.EqualTo(new List<double> { 10.3, 6.3, 5.2, 0, -1 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 asc");
         Assert.That(actualData, Is.EqualTo(new List<double> { -1, 0, 5.2, 6.3, 10.3 }));
@@ -121,17 +121,17 @@ public class SortSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<bool> actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table),
+        List<bool> actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1");
         Assert.That(actualData, Is.EqualTo(new List<bool> { true, true, false, false }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 desc");
         Assert.That(actualData, Is.EqualTo(new List<bool> { true, true, false, false }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1 asc");
         Assert.That(actualData, Is.EqualTo(new List<bool> { false, false, true, true }));

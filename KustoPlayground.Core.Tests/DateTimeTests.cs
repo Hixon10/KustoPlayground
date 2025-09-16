@@ -93,7 +93,7 @@ public class DateTimeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<DateTime> actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnNane(table),
+        List<DateTime> actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where Timestamp > ago(1h)");
         Assert.That(actualData, Is.EquivalentTo(new List<DateTime>
@@ -104,17 +104,17 @@ public class DateTimeTests
             utcNow.Add(TimeSpan.FromHours(3))
         }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where Timestamp > ago(1d)");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where Timestamp > now(1d)");
         Assert.That(actualData, Is.EquivalentTo(new List<DateTime>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<DateTime>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where Timestamp < now(-1min)");
         Assert.That(actualData, Is.EquivalentTo(new List<DateTime>
@@ -255,7 +255,7 @@ public class DateTimeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | sort by column1");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "3.1", "1", "1", "-2" }));

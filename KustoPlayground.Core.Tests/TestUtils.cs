@@ -2,7 +2,7 @@ namespace KustoPlayground.Core.Tests;
 
 internal static class TestUtils
 {
-    internal static string GetColumnNane(Table table)
+    internal static string GetColumnName(Table table)
     {
         Assert.That(table, Is.Not.Null);
         Assert.That(table.Schema, Has.Count.EqualTo(1), "table has more than 1 column");

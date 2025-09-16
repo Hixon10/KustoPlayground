@@ -382,7 +382,7 @@ public class KustoDatabaseTests
         kustoDatabase.AddTable(table);
 
         List<int> actualData =
-            TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase, table.Name);
+            TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase, table.Name);
         Assert.That(actualData, Is.EquivalentTo(expectedData));
     }
 
@@ -396,7 +396,7 @@ public class KustoDatabaseTests
         kustoDatabase.AddTable(table);
 
         List<long> actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(
-            TestUtils.GetColumnNane(table), kustoDatabase, table.Name);
+            TestUtils.GetColumnName(table), kustoDatabase, table.Name);
         Assert.That(actualData, Is.EquivalentTo(expectedData));
     }
 
@@ -414,11 +414,11 @@ public class KustoDatabaseTests
         kustoDatabase.AddTable(table2);
 
         List<int> actualData1 = TestUtils.ExecuteAndGetDataForOneColumn<int>(
-            TestUtils.GetColumnNane(table1), kustoDatabase, table1.Name);
+            TestUtils.GetColumnName(table1), kustoDatabase, table1.Name);
         Assert.That(actualData1, Is.EquivalentTo(table1Data));
 
         List<int> actualData2 = TestUtils.ExecuteAndGetDataForOneColumn<int>(
-            TestUtils.GetColumnNane(table2), kustoDatabase, table2.Name);
+            TestUtils.GetColumnName(table2), kustoDatabase, table2.Name);
         Assert.That(actualData2, Is.EquivalentTo(table2Data));
     }
 }

@@ -14,67 +14,67 @@ public class WhereSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"orange\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"1\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "1", "1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == 1");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "1", "1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != \"1\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "-2", "3.1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != 1");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "-2", "3.1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"3.1\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "3.1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == 3.1");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "3.1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != \"3.1\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "1", "-2", "1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != 3.1");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "1", "-2", "1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"-2\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "-2" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == -2");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "-2" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != \"-2\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "1", "3.1", "1" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != -2");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "1", "3.1", "1" }));
@@ -91,37 +91,37 @@ public class WhereSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"orange\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"Red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != \"red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != \"Red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "red", "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == \"green\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 != \"green\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "blue", "red" }));
@@ -138,37 +138,37 @@ public class WhereSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 =~ \"orange\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 =~ \"red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "red" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 =~ \"RED\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "red" }));
         
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !~ \"red\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !~ \"RED\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green", "blue" }));
         
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 =~ \"green\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "green" }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnNane(table),
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 !~ \"green\"");
         Assert.That(actualData, Is.EquivalentTo(new List<string> { "Red", "blue", "red" }));
@@ -185,60 +185,60 @@ public class WhereSmokeTests
             tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<int> actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table),
+        List<int> actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 > 3");
         Assert.That(actualData, Is.EquivalentTo(new List<int> { 4, 5, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<int> { 3, 4, 5, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 == 3");
         Assert.That(actualData, Is.EquivalentTo(new List<int> { 3 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 != 3");
         Assert.That(actualData, Is.EquivalentTo(new List<int> { 1, 2, 4, 5, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 3");
         Assert.That(actualData, Is.EquivalentTo(new List<int> { 1, 2 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<int> { 1, 2, 3 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > 0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > +0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= +10");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > -1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= -1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
     }
@@ -253,60 +253,60 @@ public class WhereSmokeTests
         Table table = TestUtils.GenerateTableWithColumn(tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<long> actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table),
+        List<long> actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 > 3");
         Assert.That(actualData, Is.EquivalentTo(new List<long> { 4L, 5L, 6L }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<long> { 3L, 4L, 5L, 6L }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 == 3");
         Assert.That(actualData, Is.EquivalentTo(new List<long> { 3L }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 != 3");
         Assert.That(actualData, Is.EquivalentTo(new List<long> { 1L, 2L, 4L, 5L, 6L }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 3");
         Assert.That(actualData, Is.EquivalentTo(new List<long> { 1L, 2L }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<long> { 1L, 2L, 3L }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > 0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > +0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= +10");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > -1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= -1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
     }
@@ -321,84 +321,84 @@ public class WhereSmokeTests
         Table table = TestUtils.GenerateTableWithColumn(tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<double> actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table),
+        List<double> actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 > 3");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 4D, 5D, 6D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 3D, 4D, 5D, 6D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 == 3");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 3D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 != 3");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.1D, 1.2D, 4D, 5D, 6D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 3");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.1D, 1.2D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.1D, 1.2D, 3D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 1.2");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.1D, 1.2D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 1.2");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.1D }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > 1.1");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.2D, 3D, 4D, 5.0D, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 1.1");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.1D, 1.2D, 3D, 4D, 5.0D, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 1.101");
         Assert.That(actualData, Is.EquivalentTo(new List<double> { 1.2D, 3D, 4D, 5.0D, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < +8.3");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= +8.3");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > 1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= -0.42");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > -0.42");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
     }
@@ -413,84 +413,84 @@ public class WhereSmokeTests
         Table table = TestUtils.GenerateTableWithColumn(tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<decimal> actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table),
+        List<decimal> actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 > 3");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 4m, 5m, 6m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 3m, 4m, 5m, 6m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 == 3");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 3m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 != 3");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.1m, 1.2m, 4m, 5m, 6m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 3");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.1m, 1.2m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 3");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.1m, 1.2m, 3m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 1.2");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.1m, 1.2m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 1.2");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.1m }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > 1.1");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.2m, 3m, 4m, 5.0m, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 1.1");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.1m, 1.2m, 3m, 4m, 5.0m, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 1.101");
         Assert.That(actualData, Is.EquivalentTo(new List<decimal> { 1.2m, 3m, 4m, 5.0m, 6 }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < +8.3");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= +8.3");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= 7");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > 1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 1");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= 0");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= -0.42");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<decimal>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > -0.42");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
     }
@@ -505,56 +505,56 @@ public class WhereSmokeTests
         Table table = TestUtils.GenerateTableWithColumn(tableRows, tableName: "table1", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<bool> actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table),
+        List<bool> actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table),
             kustoDatabase,
             "table1 | where column1 == false");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { false, false }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 == true");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { true, true, true }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { true, true, true }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 != false");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { true, true, true }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 != true");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { false, false }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > true");
         Assert.That(actualData, Is.EquivalentTo(new List<bool>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < false");
         Assert.That(actualData, Is.EquivalentTo(new List<bool>()));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= false");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { false, false }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 > false");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { true, true, true }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 < true");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { false, false }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 <= true");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= true");
         Assert.That(actualData, Is.EquivalentTo(new List<bool> { true, true, true }));
 
-        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnNane(table), kustoDatabase,
+        actualData = TestUtils.ExecuteAndGetDataForOneColumn<bool>(TestUtils.GetColumnName(table), kustoDatabase,
             "table1 | where column1 >= false");
         Assert.That(actualData, Is.EquivalentTo(tableRows));
     }
