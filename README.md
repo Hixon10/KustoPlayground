@@ -26,6 +26,7 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [take](https://learn.microsoft.com/en-us/kusto/query/take-operator)
 - [where](https://learn.microsoft.com/en-us/kusto/query/where-operator)
 - [sort](https://learn.microsoft.com/en-us/kusto/query/sort-operator)
+- [count](https://learn.microsoft.com/en-us/kusto/query/count-operator)
 
 ## Supported Scalar operators:
 - [between](https://learn.microsoft.com/en-us/kusto/query/between-operator)
@@ -41,7 +42,6 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [todatetime()](https://learn.microsoft.com/en-us/kusto/query/todatetime-function)
 
 ## TODO
-- count operator
 - distinct operator
 - summarize operator (count(), dcount(), avg(), sum(), min(), max(), percentile(), percentiles())
 - bin()

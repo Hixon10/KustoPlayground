@@ -134,9 +134,26 @@ public class KustoDatabase
             case SortOperator sort:
                 return ApplySort(source, sort);
 
+            case CountOperator countOperator:
+                return ApplyCountOperator(source, countOperator);
+
             default:
                 throw new NotSupportedException($"Unsupported operator: {op.GetType().Name}");
         }
+    }
+
+    private static List<Dictionary<string, object?>> ApplyCountOperator(
+        IEnumerable<Dictionary<string, object?>> source,
+        CountOperator countOperator)
+    {
+        long count = source.Count();
+        return new List<Dictionary<string, object?>>
+        {
+            new()
+            {
+                { "Count", count }
+            }
+        };
     }
 
     private IEnumerable<Dictionary<string, object?>> ApplyFilter(
