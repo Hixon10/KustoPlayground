@@ -137,9 +137,60 @@ public class KustoDatabase
             case CountOperator countOperator:
                 return ApplyCountOperator(source, countOperator);
 
+            case DistinctOperator distinctOperator:
+                return ApplyDistinctOperator(source, distinctOperator);
+            
             default:
                 throw new NotSupportedException($"Unsupported operator: {op.GetType().Name}");
         }
+    }
+
+    private static IEnumerable<Dictionary<string, object?>> ApplyDistinctOperator(
+        IEnumerable<Dictionary<string, object?>> source, 
+        DistinctOperator distinctOperator)
+    {
+        // not sure, should we materialize source here,
+        // or it is fine to iterate over source several times,
+        // when we have several sort columns.
+        List<Dictionary<string, object?>> sourceCopy = source.ToList();
+
+        if (sourceCopy.Count == 0)
+        {
+            return sourceCopy;
+        }
+        
+        // unwrap SeparatedElement<Expression> → Expression
+        IEnumerable<Expression> exprs = distinctOperator.Expressions.Select(se => se.Element);
+
+        // often NameReference, but can also be SimpleNamedExpression (alias = expr)
+        List<string> columns = new List<string>();
+        foreach (Expression e in exprs)
+        {
+            if (e is NameReference nr)
+            {
+                columns.Add(nr.Name.SimpleName);
+                continue;
+            }
+
+            if (e is SimpleNamedExpression sne && sne.Expression is NameReference)
+            {
+                columns.Add(sne.Name.SimpleName);
+                continue;
+            }
+
+            if (e is StarExpression)
+            {
+                // just add all columns of the first row
+                columns.AddRange(sourceCopy[0].Keys);
+                break;
+            }
+
+            throw new NotSupportedException($"Unsupported distinct expression: {e.GetType().Name}");
+        }
+
+        return sourceCopy
+            .GroupBy(dict => string.Join("|", columns.Select(col => dict[col])))
+            .Select(g => g.First());
     }
 
     private static List<Dictionary<string, object?>> ApplyCountOperator(
