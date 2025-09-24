@@ -32,6 +32,10 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 ## Supported Scalar operators:
 - [between](https://learn.microsoft.com/en-us/kusto/query/between-operator)
 - [!between](https://learn.microsoft.com/en-us/kusto/query/not-between-operator)
+- [in](https://learn.microsoft.com/en-us/kusto/query/in-cs-operator)
+- [in~](https://learn.microsoft.com/en-us/kusto/query/in-operator)
+- [!in](https://learn.microsoft.com/en-us/kusto/query/not-in-cs-operator)
+- [!in~](https://learn.microsoft.com/en-us/kusto/query/not-in-operator)
 
 ## Supported Scalar functions:
 - [base64_decode_tostring()](https://learn.microsoft.com/en-us/kusto/query/base64-decode-tostring-function)
@@ -55,7 +59,6 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - parse_json() (maybe extract_json())
 - pack_all()
 - print operator
-- in operator / !in operator
 - proper support of Nullable columns (filter, comparison operations, distinct, and so on)
 - mv-expand operator
 - `let` statement

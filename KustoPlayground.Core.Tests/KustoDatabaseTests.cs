@@ -196,7 +196,7 @@ public class KustoDatabaseTests
             Assert.That(d, Is.EqualTo(10 * damageProperty));
 
             Assert.That(row["E"], Is.Null);
-            
+
             var f = (double)row["F"]!;
             Assert.That(f, Is.EqualTo(86400));
 
@@ -420,5 +420,114 @@ public class KustoDatabaseTests
         List<int> actualData2 = TestUtils.ExecuteAndGetDataForOneColumn<int>(
             TestUtils.GetColumnName(table2), kustoDatabase, table2.Name);
         Assert.That(actualData2, Is.EquivalentTo(table2Data));
+    }
+
+    [Test]
+    [Description("modulo operator - simple remainder")]
+    public void ModuloOperator_SimpleRemainder()
+    {
+        var kustoDatabase = new KustoDatabase();
+        var tableRows = new List<int> { 1, 2, 3, 4, 5, 6 };
+        const string columnName = "col1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table1");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(
+            columnName,
+            kustoDatabase,
+            "table1 | where col1 % 2 == 1");
+
+        Assert.That(actualData, Is.EquivalentTo(new List<int> { 1, 3, 5 }));
+    }
+
+    [Test]
+    [Description("modulo operator - divisible numbers")]
+    public void ModuloOperator_DivisibleNumbers()
+    {
+        var kustoDatabase = new KustoDatabase();
+        var tableRows = new List<int> { 5, 10, 15, 20, 25, 30 };
+        const string columnName = "col1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table2");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(
+            columnName,
+            kustoDatabase,
+            "table2 | where col1 % 5 == 0");
+
+        Assert.That(actualData, Is.EquivalentTo(new List<int> { 5, 10, 15, 20, 25, 30 }));
+    }
+
+    [Test]
+    [Description("modulo operator - negative numbers")]
+    public void ModuloOperator_NegativeNumbers()
+    {
+        var kustoDatabase = new KustoDatabase();
+        var tableRows = new List<int> { -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5 };
+        const string columnName = "col1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table3");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(
+            columnName,
+            kustoDatabase,
+            "table3 | where col1 % 2 == 0");
+
+        Assert.That(actualData, Is.EquivalentTo(new List<int> { -4, -2, 0, 2, 4 }));
+    }
+
+    [Test]
+    [Description("modulo operator - with larger divisor")]
+    public void ModuloOperator_LargerDivisor()
+    {
+        var kustoDatabase = new KustoDatabase();
+        var tableRows = new List<long> { 1, 5, 10, 12, 20, 25, 33 };
+        const string columnName = "col1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table4");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(
+            columnName,
+            kustoDatabase,
+            "table4 | where col1 % 10 == 2");
+
+        Assert.That(actualData, Is.EquivalentTo(new List<long> { 12 }));
+    }
+
+    [Test]
+    [Description("modulo operator - projection with extend")]
+    public void ModuloOperator_ProjectionWithExtend()
+    {
+        var kustoDatabase = new KustoDatabase();
+        var tableRows = new List<int> { 7, 8, 9, 10 };
+        const string columnName = "col1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table5");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(
+            "col2",
+            kustoDatabase,
+            "table5 | extend col2 = col1 % 3");
+
+        Assert.That(actualData, Is.EquivalentTo(new List<double> { 1, 2, 0, 1 }));
+    }
+
+    [Test]
+    [Description("modulo operator - double values")]
+    public void ModuloOperator_DoubleValues()
+    {
+        var kustoDatabase = new KustoDatabase();
+        var tableRows = new List<double> { 1.5, 2.0, 3.7, 4.2, 5.0 };
+        const string columnName = "col1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table6");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(
+            columnName,
+            kustoDatabase,
+            "table6 | where col1 % 2 == 0");
+
+        // expected: numbers divisible by 2 (2.0, 4.2 since remainder 0.2 ≠ 0, only 2.0 passes)
+        Assert.That(actualData, Is.EquivalentTo(new List<double> { 2.0 }));
     }
 }

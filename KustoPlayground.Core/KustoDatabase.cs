@@ -135,18 +135,18 @@ public class KustoDatabase
                 return ApplySort(source, sort);
 
             case CountOperator countOperator:
-                return ApplyCountOperator(source, countOperator);
+                return ApplyCountOperator(source);
 
             case DistinctOperator distinctOperator:
                 return ApplyDistinctOperator(source, distinctOperator);
-            
+
             default:
                 throw new NotSupportedException($"Unsupported operator: {op.GetType().Name}");
         }
     }
 
     private static IEnumerable<Dictionary<string, object?>> ApplyDistinctOperator(
-        IEnumerable<Dictionary<string, object?>> source, 
+        IEnumerable<Dictionary<string, object?>> source,
         DistinctOperator distinctOperator)
     {
         // not sure, should we materialize source here,
@@ -158,7 +158,7 @@ public class KustoDatabase
         {
             return sourceCopy;
         }
-        
+
         // unwrap SeparatedElement<Expression> → Expression
         IEnumerable<Expression> exprs = distinctOperator.Expressions.Select(se => se.Element);
 
@@ -194,8 +194,7 @@ public class KustoDatabase
     }
 
     private static List<Dictionary<string, object?>> ApplyCountOperator(
-        IEnumerable<Dictionary<string, object?>> source,
-        CountOperator countOperator)
+        IEnumerable<Dictionary<string, object?>> source)
     {
         long count = source.Count();
         return new List<Dictionary<string, object?>>
@@ -228,8 +227,71 @@ public class KustoDatabase
             NameReference nameRef => GetPropValue(row, nameRef.Name.SimpleName),
             LiteralExpression lit => ParseLiteral(lit),
             BetweenExpression between => EvaluateBetweenExpression(between, row),
+            InExpression inExpression => EvaluateInExpression(inExpression, row),
             _ => throw new NotSupportedException($"Unsupported condition expression: {expr.GetType().Name}")
         };
+    }
+
+    private bool EvaluateInExpression(
+        InExpression inExpression,
+        Dictionary<string, object?> row)
+    {
+        (bool inverseResult, StringComparison comparisonType) = inExpression.Kind switch
+        {
+            SyntaxKind.InExpression => (false, StringComparison.Ordinal),
+            SyntaxKind.InCsExpression => (false, StringComparison.OrdinalIgnoreCase),
+            SyntaxKind.NotInExpression => (true, StringComparison.Ordinal),
+            SyntaxKind.NotInCsExpression => (true, StringComparison.OrdinalIgnoreCase),
+            _ => throw new NotSupportedException($"Unsupported In Kind: {inExpression.Kind}")
+        };
+
+        if (inExpression.Left is not NameReference leftName)
+        {
+            throw new NotSupportedException($"Unsupported In Left expression: {inExpression.Left.GetType().Name}");
+        }
+
+        string columnName = leftName.Name.SimpleName;
+
+        if (!row.TryGetValue(columnName, out object? columnValue))
+        {
+            throw new ArgumentException($"row doesn't have a value for column: '{columnName}'");
+        }
+
+        bool foundValue = false;
+        IEnumerable<Expression> exprs = inExpression.Right.Expressions.Select(se => se.Element);
+        foreach (Expression expression in exprs)
+        {
+            if (expression is LiteralExpression literalExpression)
+            {
+                // 'table1 | where col1 in (2, 4)', it will be 2 and 4
+                object literalValue = ParseLiteral(literalExpression);
+                if (CompareUtils.AreEqual(columnValue, literalValue, comparisonType))
+                {
+                    foundValue = true;
+                    break;
+                }
+            }
+            else
+            {
+                /// TODO - add cache for execution result?
+                // 'table1 | where col1 in (table1 | where col1 contains 'an')',
+                foreach (Dictionary<string, object?> resultRow in ExecuteExpression(expression))
+                {
+                    if (!resultRow.TryGetValue(columnName, out object? value))
+                    {
+                        throw new ArgumentException($"nested in query doesn't return {columnName} column");
+                    }
+
+                    if (CompareUtils.AreEqual(columnValue, value, comparisonType))
+                    {
+                        foundValue = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return inverseResult ? !foundValue : foundValue;
     }
 
     private bool EvaluateBetweenExpression(BetweenExpression between, Dictionary<string, object?> row)
@@ -422,7 +484,7 @@ public class KustoDatabase
                 if (left is DateTime && right is DateTime)
                 {
                     // Not supported as of now
-                    throw new NotSupportedException($"Unsupported AddExpression: left=DateTime, right=DateTime");
+                    throw new NotSupportedException("Unsupported AddExpression: left=DateTime, right=DateTime");
                 }
 
                 if (left is DateTime leftDateTime2 && right is TimeSpan rightTimeSpan2)
@@ -519,6 +581,27 @@ public class KustoDatabase
 
                 throw new NotSupportedException(
                     $"Unsupported DivideExpression: left={left.GetType()}, right={right.GetType()}");
+            }
+
+            case SyntaxKind.ModuloExpression:
+            {
+                var left = EvalOperand(be.Left, row);
+                var right = EvalOperand(be.Right, row);
+
+                if (left == null || right == null)
+                {
+                    return null;
+                }
+
+                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
+                {
+                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
+                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
+                    return dl % dr;
+                }
+
+                throw new NotSupportedException($"Unsupported modulo expression for non numeric types: " +
+                                                $"{left.GetType()}, {right.GetType()}");
             }
 
             default:

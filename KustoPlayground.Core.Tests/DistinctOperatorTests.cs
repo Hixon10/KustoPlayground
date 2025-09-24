@@ -28,7 +28,7 @@ public class DistinctOperatorTests
         var kustoDatabase = new KustoDatabase();
         List<string> tableRows = new() { "apple", "banana", "apple", "pear", "pear" };
         const string columnName = "column1";
-        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table1");
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName: columnName, tableName: "table1");
         kustoDatabase.AddTable(table);
 
         var actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(
@@ -49,14 +49,16 @@ public class DistinctOperatorTests
             (1, "a"), (1, "a"), (2, "b"), (2, "b"), (2, "c"), (3, "d")
         };
         Table table = TestUtils.GenerateTableWith2Columns(rows,
-            "col1", "col2",
-            "table1");
+            columnName1: "col1", 
+            columnName2: "col2",
+            tableName: "table1");
         kustoDatabase.AddTable(table);
 
         List<(int, string)> actualData = TestUtils.ExecuteAndGetDataFor2Columns<int, string>(
-            "col1", "col2",
+            columnName1: "col1", 
+            columnName2: "col2",
             kustoDatabase,
-            "table1 | distinct col1, col2");
+            query: "table1 | distinct col1, col2");
 
         var expected = new List<(int, string)>
         {
