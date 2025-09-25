@@ -28,6 +28,7 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [sort](https://learn.microsoft.com/en-us/kusto/query/sort-operator)
 - [count](https://learn.microsoft.com/en-us/kusto/query/count-operator)
 - [distinct](https://learn.microsoft.com/en-us/kusto/query/distinct-operator)
+- [print](https://learn.microsoft.com/en-us/kusto/query/print-operator)
 
 ## Supported Scalar operators:
 - [between](https://learn.microsoft.com/en-us/kusto/query/between-operator)
@@ -62,5 +63,4 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - proper support of Nullable columns (filter, comparison operations, distinct, and so on)
 - mv-expand operator
 - `let` statement
-- print operator
 - everything else...

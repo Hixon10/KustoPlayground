@@ -106,6 +106,38 @@ public class KustoDatabase
                 var left = ExecuteExpression(pipe.Expression);
                 return ApplyOperator(left, pipe.Operator);
             }
+            case PrintOperator printOperator:
+            {
+                IEnumerable<Expression> exprs = printOperator.Expressions.Select(se => se.Element);
+                Dictionary<string, object?> result = new Dictionary<string, object?>();
+
+                int i = 0;
+
+                foreach (Expression expression in exprs)
+                {
+                    string columnName;
+                    Expression columnExpression;
+
+                    switch (expression)
+                    {
+                        case SimpleNamedExpression simpleNamedExpression:
+                            columnName = simpleNamedExpression.Name.SimpleName;
+                            columnExpression = simpleNamedExpression.Expression;
+                            break;
+
+                        default:
+                            columnName = $"print_{i}";
+                            i++;
+                            columnExpression = expression;
+                            break;
+                    }
+
+                    object? columnValue = EvalOperand(columnExpression, new Dictionary<string, object?>());
+                    result[columnName] = columnValue;
+                }
+
+                return [result];
+            }
             default:
             {
                 throw new NotSupportedException($"Unsupported expression type: {expr.GetType().Name}");
