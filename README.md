@@ -59,6 +59,8 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - parse operator
 - parse_json() (maybe extract_json())
 - pack_all()
+- create a table from free form text
+- getschema operator
 - proper support of Nullable columns (filter, comparison operations, distinct, and so on)
 - mv-expand operator
 - `let` statement
