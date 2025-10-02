@@ -165,4 +165,38 @@ internal static class FunctionExpressions
         string input = args[0]!.ToString() ?? string.Empty;
         return HttpUtility.UrlDecode(input);
     }
+
+    public static string ToUpper(object?[] args)
+    {
+        if (args.Length != 1)
+        {
+            throw new ArgumentException("toupper requires exactly 1 argument.");
+        }
+
+        if (args[0] == null)
+        {
+            return string.Empty;
+        }
+
+        string input = args[0]!.ToString() ?? string.Empty;
+        return input.ToUpper(CultureInfo.InvariantCulture);
+    }
+
+    public static string ToLower(object?[] args)
+    {
+        if (args.Length != 1)
+        {
+            throw new ArgumentException("tolower requires exactly 1 argument.");
+        }
+
+        if (args[0] == null)
+        {
+            return string.Empty;
+        }
+
+        string input = args[0]!.ToString() ?? string.Empty;
+#pragma warning disable CA1308
+        return input.ToLower(CultureInfo.InvariantCulture);
+#pragma warning restore CA1308
+    }
 }

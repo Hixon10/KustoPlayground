@@ -48,6 +48,8 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [todatetime()](https://learn.microsoft.com/en-us/kusto/query/todatetime-function)
 - [url_encode()](https://learn.microsoft.com/en-us/kusto/query/url-encode-function)
 - [url_decode()](https://learn.microsoft.com/en-us/kusto/query/url-decode-function)
+- [toupper()](https://learn.microsoft.com/en-us/kusto/query/toupper-function)
+- [tolower()](https://learn.microsoft.com/en-us/kusto/query/tolower-function)
 
 ## TODO
 - summarize operator (count(), dcount(), avg(), sum(), min(), max(), percentile(), percentiles())

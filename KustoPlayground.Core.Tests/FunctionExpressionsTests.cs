@@ -3,6 +3,70 @@ namespace KustoPlayground.Core.Tests;
 public class FunctionExpressionsTests
 {
     [Test]
+    [Description("ToUpper - Convert strings to uppercase")]
+    public void ToUpper_StringColumn()
+    {
+        var kustoDatabase = new KustoDatabase();
+        List<string> tableRows = new()
+        {
+            "hello world",
+            "TeSt123",
+            "email@Test.COM",
+            "already UPPER"
+        };
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName: columnName, tableName: "table1");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(
+            columnName,
+            kustoDatabase,
+            "table1 | extend column1 = toupper(column1)");
+
+        var expectedData = new List<string>
+        {
+            "HELLO WORLD",
+            "TEST123",
+            "EMAIL@TEST.COM",
+            "ALREADY UPPER"
+        };
+
+        Assert.That(actualData, Is.EquivalentTo(expectedData));
+    }
+
+    [Test]
+    [Description("ToLower - Convert strings to lowercase")]
+    public void ToLower_StringColumn()
+    {
+        var kustoDatabase = new KustoDatabase();
+        List<string> tableRows = new()
+        {
+            "HELLO WORLD",
+            "TeSt123",
+            "EMAIL@Test.Com",
+            "already lower"
+        };
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName: columnName, tableName: "table1");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(
+            columnName,
+            kustoDatabase,
+            "table1 | extend column1 = tolower(column1)");
+
+        var expectedData = new List<string>
+        {
+            "hello world",
+            "test123",
+            "email@test.com",
+            "already lower"
+        };
+
+        Assert.That(actualData, Is.EquivalentTo(expectedData));
+    }
+
+    [Test]
     [Description("UrlEncode - Encode strings with special characters")]
     public void UrlEncode_StringColumn()
     {

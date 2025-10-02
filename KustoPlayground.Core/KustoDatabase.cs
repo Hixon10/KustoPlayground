@@ -694,6 +694,8 @@ public class KustoDatabase
             "base64_decode_tostring" => FunctionExpressions.Base64DecodeToString(args),
             "url_encode" => FunctionExpressions.UrlEncode(args),
             "url_decode" => FunctionExpressions.UrlDecode(args),
+            "toupper" => FunctionExpressions.ToUpper(args),
+            "tolower" => FunctionExpressions.ToLower(args),
             "todatetime" => FunctionExpressions.ToDateTime(args),
             "make_timespan" => FunctionExpressions.MakeTimeSpan(args),
             "totimespan" => FunctionExpressions.ToTimeSpan(args),
