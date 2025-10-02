@@ -46,12 +46,13 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [totimespan()](https://learn.microsoft.com/en-us/kusto/query/totimespan-function)
 - [make_timespan()](https://learn.microsoft.com/en-us/kusto/query/make-timespan-function)
 - [todatetime()](https://learn.microsoft.com/en-us/kusto/query/todatetime-function)
+- [url_encode()](https://learn.microsoft.com/en-us/kusto/query/url-encode-function)
+- [url_decode()](https://learn.microsoft.com/en-us/kusto/query/url-decode-function)
 
 ## TODO
 - summarize operator (count(), dcount(), avg(), sum(), min(), max(), percentile(), percentiles())
 - bin()
 - toupper() / tolower()
-- url_decode() / url_encode()
 - strlen()
 - strcat()
 - trim()

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Web;
 
 namespace KustoPlayground.Core;
 
@@ -129,7 +130,39 @@ internal static class FunctionExpressions
         {
             throw new ArgumentException("ago requires TimeSpan argument.");
         }
-        
+
         return DateTime.UtcNow.Subtract(ts);
+    }
+
+    public static string UrlEncode(object?[] args)
+    {
+        if (args.Length != 1)
+        {
+            throw new ArgumentException("url_encode requires exactly 1 argument.");
+        }
+
+        if (args[0] == null)
+        {
+            return string.Empty;
+        }
+
+        string input = args[0]!.ToString() ?? string.Empty;
+        return HttpUtility.UrlEncode(input);
+    }
+
+    public static string UrlDecode(object?[] args)
+    {
+        if (args.Length != 1)
+        {
+            throw new ArgumentException("url_decode requires exactly 1 argument.");
+        }
+
+        if (args[0] == null)
+        {
+            return string.Empty;
+        }
+
+        string input = args[0]!.ToString() ?? string.Empty;
+        return HttpUtility.UrlDecode(input);
     }
 }
