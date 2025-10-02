@@ -199,4 +199,20 @@ internal static class FunctionExpressions
         return input.ToLower(CultureInfo.InvariantCulture);
 #pragma warning restore CA1308
     }
+
+    public static int StrLen(object?[] args)
+    {
+        if (args.Length != 1)
+        {
+            throw new ArgumentException("strlen requires exactly 1 argument.");
+        }
+
+        if (args[0] == null)
+        {
+            return 0;
+        }
+
+        string input = args[0]!.ToString() ?? string.Empty;
+        return input.Length;
+    }
 }

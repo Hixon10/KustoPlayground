@@ -50,12 +50,11 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - [url_decode()](https://learn.microsoft.com/en-us/kusto/query/url-decode-function)
 - [toupper()](https://learn.microsoft.com/en-us/kusto/query/toupper-function)
 - [tolower()](https://learn.microsoft.com/en-us/kusto/query/tolower-function)
+- [strlen()](https://learn.microsoft.com/en-us/kusto/query/strlen-function)
 
 ## TODO
 - summarize operator (count(), dcount(), avg(), sum(), min(), max(), percentile(), percentiles())
 - bin()
-- toupper() / tolower()
-- strlen()
 - strcat()
 - trim()
 - toint() / tolong() / toreal() / tostring() / tobool()

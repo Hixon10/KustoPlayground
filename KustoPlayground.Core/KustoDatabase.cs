@@ -696,6 +696,7 @@ public class KustoDatabase
             "url_decode" => FunctionExpressions.UrlDecode(args),
             "toupper" => FunctionExpressions.ToUpper(args),
             "tolower" => FunctionExpressions.ToLower(args),
+            "strlen" => FunctionExpressions.StrLen(args),
             "todatetime" => FunctionExpressions.ToDateTime(args),
             "make_timespan" => FunctionExpressions.MakeTimeSpan(args),
             "totimespan" => FunctionExpressions.ToTimeSpan(args),

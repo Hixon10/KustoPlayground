@@ -3,6 +3,42 @@ namespace KustoPlayground.Core.Tests;
 public class FunctionExpressionsTests
 {
     [Test]
+    [Description("StrLen - Return the length of strings")]
+    public void StrLen_StringColumn()
+    {
+        var kustoDatabase = new KustoDatabase();
+        List<string> tableRows = new()
+        {
+            "hello", // 5
+            "", // 0
+            " ", // 1
+            "TeSt123", // 7
+            "email@test.com", // 14
+            "multi word text" // 15 (spaces included)
+        };
+        const string columnName = "column1";
+        Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName: columnName, tableName: "table1");
+        kustoDatabase.AddTable(table);
+
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(
+            columnName,
+            kustoDatabase,
+            "table1 | extend column1 = strlen(column1)");
+
+        var expectedData = new List<int>
+        {
+            5,
+            0,
+            1,
+            7,
+            14,
+            15
+        };
+
+        Assert.That(actualData, Is.EquivalentTo(expectedData));
+    }
+
+    [Test]
     [Description("ToUpper - Convert strings to uppercase")]
     public void ToUpper_StringColumn()
     {
