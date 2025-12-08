@@ -15,7 +15,11 @@
 
 @if (ActiveTab == "CSV")
 {
-    <label for="csvData">CSV data:</label>
+    <label>Option 1: CSV Data from .csv file:</label>
+    <br/>
+    <InputFile OnChange="@LoadCsvFile" class="form-control" accept=".csv"/>
+    <br/>
+    <label for="csvData">Option 2: CSV data as text:</label>
     <br/>
     <textarea id="csvData" @bind="CsvText" rows="6" cols="60" placeholder="Paste CSV header and rows here"></textarea>
     <br/>
@@ -24,7 +28,9 @@
     <br/>
     <input id="tableName" @bind="CsvTableName" placeholder="Table name (e.g., MyTable)"/>
     <br/>
-    <button @onclick="ProcessCsv">Add Table</button>
+    <button @onclick="ProcessCsv" disabled="@IsProcessing">
+        @if (IsProcessing) { <span>Processing...</span> } else { <span>Add Table</span> }
+    </button>
 
     @if (CsvAdded)
     {
@@ -79,8 +85,13 @@
 
 @code {
     private string ActiveTab { get; set; } = "CSV";
+    
+    private bool IsProcessing = false;
 
     // CSV state
+    // Holds the reference to the csv file selected by the user
+    private IBrowserFile? CsvSelectedFile;
+
     private string CsvText { get; set; } = @"DamageProperty,StartTime,State,EventType
 20000,8/23/2025 6:20:00 AM,FLORIDA,Hurricane
 5000,3/28/2023 10:30:00 AM,TEXAS,Flood
@@ -129,16 +140,45 @@
 
     private List<string> Errors { get; set; } = new();
 
-    private void ProcessCsv()
+    // 1. Handle file selection
+    private void LoadCsvFile(InputFileChangeEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(CsvText) || string.IsNullOrWhiteSpace(CsvTableName))
+        CsvSelectedFile = e.File;
+    }
+
+    private async Task ProcessCsv()
+    {
+        if (string.IsNullOrWhiteSpace(CsvTableName))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(CsvText) && CsvSelectedFile == null)
         {
             return;
         }
 
         try
         {
-            var lines = CsvText.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            IsProcessing = true;
+            
+            string finalCsvText;
+            if (CsvSelectedFile != null)
+            {
+                // STRATEGY A: Read from File
+                // OpenReadStream opens a stream to the file in browser memory
+                const long maxFileSize = 1024 * 1024 * 50; // 50MB
+                using var stream = CsvSelectedFile.OpenReadStream(maxFileSize);
+                using var reader = new StreamReader(stream);
+                finalCsvText = await reader.ReadToEndAsync();
+            }
+            else
+            {
+                // STRATEGY B: Use Text Area
+                finalCsvText = CsvText;
+            }
+            
+            var lines = finalCsvText.Split('\n', StringSplitOptions.RemoveEmptyEntries)
                 .Select(l => l.Trim())
                 .ToList();
 
@@ -173,6 +213,11 @@
             Console.WriteLine("Unhandled error during ProcessCsv()");
             Console.WriteLine(ex.ToString());
             throw;
+        }
+        finally
+        {
+            CsvSelectedFile = null;
+            IsProcessing = false;
         }
     }
 
