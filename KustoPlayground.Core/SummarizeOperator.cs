@@ -5,11 +5,11 @@ using QueryRow = System.Collections.Generic.Dictionary<string, object?>;
 
 namespace KustoPlayground.Core;
 
-public partial class KustoDatabase
+internal sealed partial class QueryEvaluator
 {
-    private static readonly GlobalState SummaryGlobals = CreateSummaryGlobals();
+    private static readonly GlobalState QueryGlobals = CreateQueryGlobals();
 
-    private static GlobalState CreateSummaryGlobals()
+    private static GlobalState CreateQueryGlobals()
     {
         // The service accepts the documented count(column) form; it counts rows, not non-null values.
         // The language package still declares the obsolete optional argument as bool.
@@ -19,11 +19,12 @@ public partial class KustoDatabase
         return globals.WithAggregates(globals.Aggregates.Select(f => f.Name == "count" ? count : f).ToArray());
     }
 
-    private KustoCode AnalyzeSummaries(KustoCode code)
+    private KustoCode Analyze(KustoCode code)
     {
         var tables = _tables.Values.Select(t => new TableSymbol(t.Name, t.Schema.Values.Select(c =>
             new ColumnSymbol(c.Name, ColumnType(c.GetColumnType())))));
-        return code.Analyze(SummaryGlobals.WithDatabase(new DatabaseSymbol("Playground", tables)));
+        var bound = code.Analyze(QueryGlobals.WithDatabase(new DatabaseSymbol("Playground", tables)));
+        return bound.Syntax.GetFirstDescendant<UnionOperator>() is not null ? BindViewUnions(bound) : bound;
     }
 
     private static ScalarSymbol ColumnType(Type type)
@@ -45,7 +46,7 @@ public partial class KustoDatabase
     }
 
     private static bool IsAggregate(FunctionCallExpression call) =>
-        call.ReferencedSymbol is FunctionSymbol function && SummaryGlobals.IsAggregateFunction(function);
+        call.ReferencedSymbol is FunctionSymbol function && QueryGlobals.IsAggregateFunction(function);
 
     private static Expression UnwrapOutput(Expression expression) => expression switch
     {

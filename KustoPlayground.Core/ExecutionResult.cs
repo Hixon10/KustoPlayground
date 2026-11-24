@@ -32,6 +32,9 @@ public partial class ExecutionResultJsonContext : JsonSerializerContext;
 /// </summary>
 public sealed class ExecutionResult
 {
+    /// <summary>Formats a scalar or dynamic value for display, using the same conversions as the query engine.</summary>
+    public static string FormatValue(object? value) => ScalarFunctions.ToText(value);
+
     /// <summary>
     /// The collection of rows returned by the query.
     /// Can be null, if the execution fails.

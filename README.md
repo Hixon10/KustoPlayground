@@ -34,7 +34,8 @@ Chromium's system libraries as well. The script publishes the **Release AOT**
 site, builds the separate Playwright project, installs its matching headless
 Chromium, and runs the tests. They serve only the published files at the GitHub
 Pages subpath, import CSV (paste and file upload) and JSON, and check the KQL
-results. No development server or external service is involved.
+results, including a grouped aggregate and a query combining a local function,
+typed parsing, JSON extraction and schema inspection. No development server or external service is involved.
 
 ## Deployment
 
@@ -68,6 +69,8 @@ copy or personal deployment token is needed.
 - [summarize](https://learn.microsoft.com/en-us/kusto/query/summarize-operator)
 - [distinct](https://learn.microsoft.com/en-us/kusto/query/distinct-operator)
 - [print](https://learn.microsoft.com/en-us/kusto/query/print-operator)
+- [parse](https://learn.microsoft.com/en-us/kusto/query/parse-operator) (`simple`, `relaxed`, or `regex` with flags)
+- [getschema](https://learn.microsoft.com/en-us/kusto/query/getschema-operator) (column names, ordinals and types, even for empty inputs)
 
 `summarize` supports grouping, conditional aggregates, row selectors such as
 `arg_max`, collections, variance/covariance, and nearest-rank percentiles. For example:
@@ -81,6 +84,21 @@ StormEvents
 Distinct counts and percentiles are computed exactly in memory. Shuffle hints do
 not change local execution. The local `hll` state can be merged and counted within
 a query; it is not an exchange format for Azure Data Explorer sketches.
+
+## Query-local names and functions
+
+Use [`let` statements](https://learn.microsoft.com/en-us/kusto/query/let-statement)
+for scalars, tables, views, and functions with scalar or tabular parameters. Names
+last for one query. A name normally re-evaluates its expression; use `toscalar()`
+or `materialize()` to reuse the same value or rows.
+
+```kusto
+let Bucket = (text:string) { bin(toint(trim(@"\s+", text)), 5) };
+let Events = print Line="name=sensor;value= 14 ;";
+Events
+| parse Line with "name=" Sensor ";value=" Raw ";"
+| project Label=strcat(Sensor, ":", Bucket(Raw))
+```
 
 ## Supported Scalar operators:
 - [between](https://learn.microsoft.com/en-us/kusto/query/between-operator)
@@ -103,18 +121,13 @@ a query; it is not an exchange format for Azure Data Explorer sketches.
 - [toupper()](https://learn.microsoft.com/en-us/kusto/query/toupper-function)
 - [tolower()](https://learn.microsoft.com/en-us/kusto/query/tolower-function)
 - [strlen()](https://learn.microsoft.com/en-us/kusto/query/strlen-function)
-- [bin()](https://learn.microsoft.com/en-us/kusto/query/bin-function) and [bin_at()](https://learn.microsoft.com/en-us/kusto/query/bin-at-function)
+- [bin()](https://learn.microsoft.com/en-us/kusto/query/bin-function) (also `floor()`) and [bin_at()](https://learn.microsoft.com/en-us/kusto/query/bin-at-function)
+- [strcat()](https://learn.microsoft.com/en-us/kusto/query/strcat-function) and [trim()](https://learn.microsoft.com/en-us/kusto/query/trim-function)
+- `toint()`, `tolong()`, `toreal()`/`todouble()`, `tostring()`, and `tobool()`/`toboolean()`
+- [parse_json()](https://learn.microsoft.com/en-us/kusto/query/parse-json-function), [extract_json()](https://learn.microsoft.com/en-us/kusto/query/extract-json-function) (root, property and array-index paths, optional `typeof(...)`), and [pack_all()](https://learn.microsoft.com/en-us/kusto/query/pack-all-function)
 
 ## TODO
-- strcat()
-- trim()
-- toint() / tolong() / tobool()
-- parse operator
-- extract_json()
-- pack_all()
 - create a table from free form text
-- getschema operator
 - proper support of Nullable columns (filter, comparison operations, distinct, and so on)
 - mv-expand operator
-- `let` statement
 - everything else...

@@ -124,6 +124,21 @@ public class PublishedAppTests : PageTest
             "City=Oslo, Total=10, Values=[2,8]", "City=Lima, Total=5, Values=[5]");
     }
 
+    [Test]
+    public async Task ParseAndInspectSchemaInPublishedWasm()
+    {
+        const string query = """
+            let Bucket = (s:string) { bin(toint(trim(' ', s)), 5) };
+            let Parsed = print Line='n= 14 ;' | parse Line with 'n=' Raw ';';
+            Parsed | project Bucket=Bucket(Raw)
+            | extend Bag=pack_all()
+            | project Label=strcat('bucket=', extract_json('$.Bucket', tostring(Bag)))
+            """;
+        await AssertQuery(query, "Label=bucket=10");
+        await AssertQuery(query + " | getschema | project ColumnName, ColumnType", "ColumnName=Label, ColumnType=string");
+        await AssertQuery("print R=bin(4.5, 0.0) | project Bag=pack_all()", "Bag={\"R\":NaN}");
+    }
+
     private async Task AssertQuery(string query, params string[] expectedRows)
     {
         await Page.GetByRole(AriaRole.Textbox, new() { Name = "KQL query" }).FillAsync(query);
