@@ -45,9 +45,8 @@ deploy job publishes that exact artifact to
 it. Pull requests run the checks but cannot deploy.
 
 The repository's **Settings > Pages > Build and deployment > Source** must be
-**GitHub Actions**. The checked-in `docs` directory is the previous branch-based
-release; there is no need to copy files there, edit the base path, or configure
-a personal deployment token.
+**GitHub Actions**. The published site is not checked into Git. No manual file
+copy or personal deployment token is needed.
 
 ## Supported String operators:
 - [contains](https://learn.microsoft.com/en-us/kusto/query/contains-operator)
