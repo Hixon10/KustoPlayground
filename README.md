@@ -10,6 +10,45 @@ It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no ser
 - 100% client-side - no data leaves your machine.
 - Perfect for **learning, prototyping, and testing** queries quickly.
 
+## Build and test
+
+With the .NET 11 SDK, run the unit tests from the repository root. They don't
+need a browser or a WebAssembly workload:
+
+```sh
+dotnet test KustoPlayground.Core.Tests -c Release
+```
+
+To run the same checks as CI on Windows, macOS, or Linux, install the WebAssembly
+workload once, build with .NET and NUnit analyzer warnings treated as errors,
+and run the browser suite with PowerShell 7.4 or newer:
+
+```sh
+dotnet workload install wasm-tools
+dotnet build KustoPlayground.sln -c Release -warnaserror
+pwsh -File test-browser.ps1
+```
+
+On a new Linux machine, use `pwsh -File test-browser.ps1 -WithDeps` to install
+Chromium's system libraries as well. The script publishes the **Release AOT**
+site, builds the separate Playwright project, installs its matching headless
+Chromium, and runs the tests. They serve only the published files at the GitHub
+Pages subpath, import CSV (paste and file upload) and JSON, and check the KQL
+results. No development server or external service is involved.
+
+## Deployment
+
+CI packages `artifacts/site/wwwroot` as the `github-pages` artifact only after
+the unit tests, analyzers, and Chromium tests pass. On a push to `main`, the
+deploy job publishes that exact artifact to
+[Kusto Playground](https://hixon10.github.io/KustoPlayground/) without rebuilding
+it. Pull requests run the checks but cannot deploy.
+
+The repository's **Settings > Pages > Build and deployment > Source** must be
+**GitHub Actions**. The checked-in `docs` directory is the previous branch-based
+release; there is no need to copy files there, edit the base path, or configure
+a personal deployment token.
+
 ## Supported String operators:
 - [contains](https://learn.microsoft.com/en-us/kusto/query/contains-operator)
 - [!contains](https://learn.microsoft.com/en-us/kusto/query/not-contains-operator)

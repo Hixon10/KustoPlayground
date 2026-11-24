@@ -15,9 +15,9 @@
 
 @if (ActiveTab == "CSV")
 {
-    <label>Option 1: CSV Data from .csv file:</label>
+    <label for="csvFile">Option 1: CSV Data from .csv file:</label>
     <br/>
-    <InputFile OnChange="@LoadCsvFile" class="form-control" accept=".csv"/>
+    <InputFile id="csvFile" OnChange="@LoadCsvFile" class="form-control" accept=".csv"/>
     <br/>
     <label for="csvData">Option 2: CSV data as text:</label>
     <br/>
@@ -57,14 +57,14 @@
 
 <h3>Kusto Processor</h3>
 
-<textarea @bind="KqlQuery" rows="10" cols="60"></textarea>
+<textarea aria-label="KQL query" @bind="KqlQuery" rows="10" cols="60"></textarea>
 <br/>
 <button @onclick="ExecuteKusto">Process Kusto Query</button>
 
 @if (Results.Any())
 {
     <h4>Results</h4>
-    <ul>
+    <ul aria-label="Query results">
         @foreach (var line in Results)
         {
             <li>@line</li>
