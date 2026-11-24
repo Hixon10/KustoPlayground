@@ -24,11 +24,15 @@ internal static class ScalarMath
             {
                 if (op == SyntaxKind.AddExpression) return duration + span;
                 if (op == SyntaxKind.SubtractExpression) return duration - span;
-                if (op == SyntaxKind.DivideExpression) return duration / span;
+                if (op == SyntaxKind.DivideExpression) return span == TimeSpan.Zero ? null : duration / span;
             }
             if (right is DateTime instant && op == SyntaxKind.AddExpression) return instant + duration;
             if (CompareUtils.IsNumeric(right) && op == SyntaxKind.MultiplyExpression) return duration * Convert.ToDouble(right, Culture);
-            if (CompareUtils.IsNumeric(right) && op == SyntaxKind.DivideExpression) return duration / Convert.ToDouble(right, Culture);
+            if (CompareUtils.IsNumeric(right) && op == SyntaxKind.DivideExpression)
+            {
+                var divisor = Convert.ToDouble(right, Culture);
+                return divisor == 0 ? null : duration / divisor;
+            }
         }
         if (right is TimeSpan factor && CompareUtils.IsNumeric(left) && op == SyntaxKind.MultiplyExpression)
             return factor * Convert.ToDouble(left, Culture);

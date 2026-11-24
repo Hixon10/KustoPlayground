@@ -41,8 +41,8 @@ internal static class TableBuilder
             var parsedRow = new Dictionary<string, object?>();
             foreach (var col in columns)
             {
-                string? raw = row[col.Name]?.ToString();
-                parsedRow[col.Name] = ParseValue(raw, columnToType[col.Name]);
+                if (row.TryGetValue(col.Name, out var value))
+                    parsedRow[col.Name] = ParseValue(value?.ToString(), columnToType[col.Name]);
             }
 
             table.AddRow(parsedRow);

@@ -18,6 +18,7 @@ internal sealed partial class QueryEvaluator
         : this(parent._tables)
     {
         _bindings = bindings;
+        _queryTime = parent._queryTime;
         if (!functionCall) _cache = parent._cache;
     }
 
@@ -62,7 +63,9 @@ internal sealed partial class QueryEvaluator
             throw new ArgumentException($"{name} is not a table.");
         }
         if (!_tables.TryGetValue(name, out var stored)) throw new ArgumentException($"Unknown table: {name}");
-        return stored.Rows.Select(row => stored.Schema.Keys.ToDictionary(key => key, key => row._values[key], StringComparer.Ordinal));
+        // Storage distinguishes a missing cell for validation and import. KQL strings have no null value.
+        return stored.Rows.Select(row => stored.Schema.Values.ToDictionary(c => c.Name,
+            c => row._values[c.Name] ?? (c.GetColumnType() == typeof(string) ? string.Empty : null), StringComparer.Ordinal));
     }
 
     private IEnumerable<QueryRow> CallTableFunction(FunctionCallExpression call, IEnumerable<QueryRow>? piped = null)

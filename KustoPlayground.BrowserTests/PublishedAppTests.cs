@@ -114,6 +114,28 @@ public class PublishedAppTests : PageTest
     }
 
     [Test]
+    public async Task QueryMissingValuesInPublishedWasm()
+    {
+        await Page.GetByRole(AriaRole.Button, new() { Name = "JSON" }).ClickAsync();
+        await Page.GetByLabel("JSON table representation:").FillAsync("""
+            {
+              "Name": "Samples",
+              "Columns": [{"Name":"Id","Type":"int"}, {"Name":"Score","Type":"long","Nullable":true},
+                          {"Name":"Tag","Type":"string","Nullable":true}],
+              "Rows": [{"Id":1}, {"Id":2,"Score":0,"Tag":""}, {"Id":3,"Score":4,"Tag":"ok"}]
+            }
+            """);
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add Table" }).ClickAsync();
+        await Expect(Page.GetByText("JSON table added successfully.")).ToBeVisibleAsync();
+        await AssertQuery("Samples | where Score >= 0 | sort by Id asc | project Id", "Id=2", "Id=3");
+        await AssertQuery("""
+            let Missing = Samples | where isnull(Score) | project Score, MatchId=Id;
+            Samples | join kind=leftouter (Missing) on Score | sort by Id asc
+            | project Id, Tag=coalesce(Tag, 'untagged'), Matched=iff(isnotnull(MatchId), 'yes', 'no')
+            """, "Id=1, Tag=untagged, Matched=yes", "Id=2, Tag=untagged, Matched=no", "Id=3, Tag=ok, Matched=no");
+    }
+
+    [Test]
     public async Task SummarizePublishedTable()
     {
         await Page.GetByLabel("Option 2: CSV data as text:").FillAsync("City,Score\nOslo,2\nLima,5\nOslo,8");

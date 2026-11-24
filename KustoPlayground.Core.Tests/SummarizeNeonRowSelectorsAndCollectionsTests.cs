@@ -427,7 +427,7 @@ public class SummarizeNeonRowSelectorsAndCollectionsTests
         Assert.That(actual, Is.EquivalentTo(new List<(string?, string?)>
         {
             ("G1", "Present"),
-            ("G2", null)
+            ("G2", "")
         }));
     }
 
@@ -608,7 +608,7 @@ public class SummarizeNeonRowSelectorsAndCollectionsTests
     public void Summarize_MakeListIf_BasicAndMaxSize()
     {
         var kustoDatabase = new KustoDatabase();
-        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith3Columns<string, string, bool>(
+        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith3Columns<string, object, bool>(
             [
                 ("G1", "a", true),
                 ("G1", "a", true),
@@ -698,7 +698,7 @@ public class SummarizeNeonRowSelectorsAndCollectionsTests
     public void Summarize_MakeSet_DeduplicatesExcludesNullsAndCaseSensitive()
     {
         var kustoDatabase = new KustoDatabase();
-        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith2Columns<string, string>(
+        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith2Columns<string, object>(
             [
                 ("G1", "apple"),
                 ("G1", "apple"),

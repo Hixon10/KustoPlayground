@@ -215,7 +215,8 @@ public class SummarizeNeonCountAndNumericAggregationsTests
     public void Summarize_DCount_IgnoresNulls()
     {
         var kustoDatabase = new KustoDatabase();
-        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith2Columns<string, string>(
+        // A dynamic column can hold both string values and genuine nulls.
+        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith2Columns<string, object>(
             [
                 ("G1", "x"),
                 ("G1", "x"),
@@ -262,7 +263,7 @@ public class SummarizeNeonCountAndNumericAggregationsTests
     public void Summarize_DCountIf_GroupedAndNulls()
     {
         var kustoDatabase = new KustoDatabase();
-        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith3Columns<string, string, bool>(
+        Table table = SummarizeNeonTestUtils.GenerateNullableTableWith3Columns<string, object, bool>(
             [
                 ("G1", "a", true),
                 ("G1", "a", true),

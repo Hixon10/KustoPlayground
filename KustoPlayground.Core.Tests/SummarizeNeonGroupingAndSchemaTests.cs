@@ -170,8 +170,8 @@ public class SummarizeNeonGroupingAndSchemaTests
     }
 
     [Test]
-    [Description("Summarize - Grouping on a nullable string column keeps null distinct from empty string")]
-    public void Summarize_ByNullableStringColumn_NullDistinctFromEmptyString()
+    [Description("Summarize - Missing string cells and empty strings form one group")]
+    public void Summarize_ByNullableStringColumn_MissingAndEmptyFormOneGroup()
     {
         var kustoDatabase = new KustoDatabase();
         Table table = SummarizeNeonTestUtils.GenerateNullableTableWithColumn<string>(
@@ -188,8 +188,7 @@ public class SummarizeNeonGroupingAndSchemaTests
 
         var expected = new List<(string?, long)>
         {
-            (null, 2L),
-            ("", 2L),
+            ("", 4L),
             ("A", 2L)
         };
         Assert.That(actual, Is.EquivalentTo(expected));
@@ -225,8 +224,8 @@ public class SummarizeNeonGroupingAndSchemaTests
         {
             ("A", null, 2L),
             ("A", 1, 1L),
-            (null, null, 2L),
-            (null, 1, 1L)
+            ("", null, 2L),
+            ("", 1, 1L)
         };
         Assert.That(actual, Is.EquivalentTo(expected));
     }

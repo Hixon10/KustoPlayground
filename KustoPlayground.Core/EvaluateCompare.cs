@@ -1,16 +1,17 @@
 using System.Globalization;
+using Kusto.Language.Syntax;
 
 namespace KustoPlayground.Core;
 
 internal static class CompareUtils
 {
-    internal static bool AreEqual(object? left, object? right, StringComparison comparisonType)
+    internal static bool? AreEqual(object? left, object? right, StringComparison comparisonType)
     {
         if (left is long a && right is long b) return a == b;
         if (left is decimal x && right is decimal y) return x == y;
         if (left == null && right == null)
         {
-            return true;
+            return null;
         }
 
         if (left == null || right == null)
@@ -20,8 +21,7 @@ internal static class CompareUtils
 
         if (IsNumeric(left) && IsNumeric(right))
         {
-            return Convert.ToDouble(left, CultureInfo.InvariantCulture) ==
-                   Convert.ToDouble(right, CultureInfo.InvariantCulture);
+            return !IsNaN(left) && !IsNaN(right) && CompareNumbers(left, right) == 0;
         }
 
         if (IsNumeric(left) && right is string rightStr)
@@ -61,9 +61,7 @@ internal static class CompareUtils
 
         if (IsNumeric(left) && IsNumeric(right))
         {
-            var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-            var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-            return dl.CompareTo(dr);
+            return CompareNumbers(left, right);
         }
 
         if (left is string ls && right is string rs)
@@ -78,6 +76,37 @@ internal static class CompareUtils
 
         throw new NotSupportedException(
             $"Cannot compare values of types {left.GetType().Name} and {right.GetType().Name}");
+    }
+
+    private static int CompareNumbers(object left, object right) =>
+        left is double or float || right is double or float
+            ? Convert.ToDouble(left, CultureInfo.InvariantCulture).CompareTo(Convert.ToDouble(right, CultureInfo.InvariantCulture))
+            : Convert.ToDecimal(left, CultureInfo.InvariantCulture).CompareTo(Convert.ToDecimal(right, CultureInfo.InvariantCulture));
+
+    private static bool IsNaN(object? value) => value is double.NaN or float.NaN;
+
+    internal static bool? Relational(SyntaxKind op, object? left, object? right)
+    {
+        if (left is null || right is null) return null;
+        if (IsNaN(left) || IsNaN(right)) return false;
+        var comparison = Compare(left, right);
+        return op switch
+        {
+            SyntaxKind.LessThanExpression => comparison < 0,
+            SyntaxKind.LessThanOrEqualExpression => comparison <= 0,
+            SyntaxKind.GreaterThanExpression => comparison > 0,
+            SyntaxKind.GreaterThanOrEqualExpression => comparison >= 0,
+            _ => throw new ArgumentOutOfRangeException(nameof(op))
+        };
+    }
+
+    internal static int SortComparison(object? left, object? right, bool descending, bool nullsFirst)
+    {
+        // NaN sorts next to null, independent of the direction used for ordinary values and infinities.
+        static int Rank(object? value) => value is null ? 0 : IsNaN(value) ? 1 : 2;
+        int a = Rank(left), b = Rank(right);
+        if (a != b) return nullsFirst ? a.CompareTo(b) : b.CompareTo(a);
+        return a != 2 ? 0 : descending ? Compare(right, left) : Compare(left, right);
     }
 
     internal static bool IsNumeric(object value)

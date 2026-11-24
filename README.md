@@ -34,8 +34,8 @@ Chromium's system libraries as well. The script publishes the **Release AOT**
 site, builds the separate Playwright project, installs its matching headless
 Chromium, and runs the tests. They serve only the published files at the GitHub
 Pages subpath, import CSV (paste and file upload) and JSON, and check the KQL
-results, including a grouped aggregate and a query combining a local function,
-typed parsing, JSON extraction and schema inspection. No development server or external service is involved.
+results, including grouped aggregation, typed parsing, schema inspection, and
+filtering and joining imported rows with missing values. No development server or external service is involved.
 
 ## Deployment
 
@@ -68,6 +68,7 @@ copy or personal deployment token is needed.
 - [count](https://learn.microsoft.com/en-us/kusto/query/count-operator)
 - [summarize](https://learn.microsoft.com/en-us/kusto/query/summarize-operator)
 - [distinct](https://learn.microsoft.com/en-us/kusto/query/distinct-operator)
+- [join](https://learn.microsoft.com/en-us/kusto/query/join-operator) (inner, innerunique, outer, semi and anti joins)
 - [print](https://learn.microsoft.com/en-us/kusto/query/print-operator)
 - [parse](https://learn.microsoft.com/en-us/kusto/query/parse-operator) (`simple`, `relaxed`, or `regex` with flags)
 - [getschema](https://learn.microsoft.com/en-us/kusto/query/getschema-operator) (column names, ordinals and types, even for empty inputs)
@@ -84,6 +85,18 @@ StormEvents
 Distinct counts and percentiles are computed exactly in memory. Shuffle hints do
 not change local execution. The local `hll` state can be merged and counted within
 a query; it is not an exchange format for Azure Data Explorer sketches.
+
+## Missing values
+
+Omitted or explicitly null values are allowed in nullable columns. In a query,
+a missing string reads as `""`; other scalar types keep their nulls. Use
+`isempty()` for text and `isnull()` for typed nulls. Comparisons can return an
+unknown boolean: for example, `long(null) == long(null)` is null, and
+`where` keeps only rows whose predicate is true.
+
+`distinct` and `summarize by` group null keys together. Equijoins also match
+two null keys; in contrast, `in (subquery)` never matches a null key.
+Use `sort by Score asc nulls last` to choose where missing values appear.
 
 ## Query-local names and functions
 
@@ -109,6 +122,7 @@ Events
 - [!in~](https://learn.microsoft.com/en-us/kusto/query/not-in-operator)
 
 ## Supported Scalar functions:
+- `isnull()`, `isnotnull()`, `isempty()`, `isnotempty()`, `coalesce()`, `iff()`/`iif()`, and `case()`
 - [base64_decode_tostring()](https://learn.microsoft.com/en-us/kusto/query/base64-decode-tostring-function)
 - [base64_encode_tostring()](https://learn.microsoft.com/en-us/kusto/query/base64-encode-tostring-function)
 - [ago()](https://learn.microsoft.com/en-us/kusto/query/ago-function)
@@ -128,6 +142,5 @@ Events
 
 ## TODO
 - create a table from free form text
-- proper support of Nullable columns (filter, comparison operations, distinct, and so on)
 - mv-expand operator
 - everything else...

@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Text;
 using System.Web;
+using Kusto.Language.Symbols;
 
 namespace KustoPlayground.Core;
 
@@ -18,7 +20,7 @@ internal static class FunctionExpressions
         }
 
         string input = args[0]!.ToString() ?? string.Empty;
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(input);
+        byte[] bytes = Encoding.UTF8.GetBytes(input);
         return Convert.ToBase64String(bytes);
     }
 
@@ -26,7 +28,7 @@ internal static class FunctionExpressions
     {
         if (args.Length != 1)
         {
-            throw new ArgumentException("base64_encode_tostring requires exactly 1 argument.");
+            throw new ArgumentException("base64_decode_tostring requires exactly 1 argument.");
         }
 
         if (args[0] == null)
@@ -35,8 +37,9 @@ internal static class FunctionExpressions
         }
 
         string input = args[0]!.ToString() ?? string.Empty;
-        byte[] bytes = Convert.FromBase64String(input);
-        return System.Text.Encoding.UTF8.GetString(bytes);
+        var buffer = new byte[System.Buffers.Text.Base64.GetMaxDecodedFromUtf8Length(input.Length)];
+        return Convert.TryFromBase64String(input, buffer, out int length)
+            ? Encoding.UTF8.GetString(buffer, 0, length) : string.Empty;
     }
 
     public static DateTime? ToDateTime(object?[] args)
@@ -46,17 +49,7 @@ internal static class FunctionExpressions
             throw new ArgumentException("todatetime requires exactly 1 argument.");
         }
 
-        if (args[0] is not string s)
-        {
-            return null;
-        }
-
-        if (DateTime.TryParse(s, out DateTime result))
-        {
-            return result;
-        }
-
-        return null;
+        return (DateTime?)ScalarFunctions.ConvertTo(args[0], ScalarTypes.DateTime);
     }
 
     public static TimeSpan? MakeTimeSpan(object?[] args)
@@ -71,22 +64,13 @@ internal static class FunctionExpressions
             throw new ArgumentException("make_timespan requires at most 4 arguments.");
         }
 
-        int days = Convert.ToInt32(args[0], CultureInfo.InvariantCulture);
-        int hours = Convert.ToInt32(args[1], CultureInfo.InvariantCulture);
-        int minutes = 0;
-        int seconds = 0;
-
-        if (args.Length >= 3)
-        {
-            minutes = Convert.ToInt32(args[2], CultureInfo.InvariantCulture);
-        }
-
-        if (args.Length >= 4)
-        {
-            seconds = Convert.ToInt32(args[3], CultureInfo.InvariantCulture);
-        }
-
-        return new TimeSpan(days, hours, minutes, seconds);
+        if (Array.Exists(args, v => v is null)) return null;
+        int start = args.Length == 4 ? 1 : 0;
+        int days = start == 1 ? Convert.ToInt32(args[0], CultureInfo.InvariantCulture) : 0;
+        int hours = Convert.ToInt32(args[start], CultureInfo.InvariantCulture);
+        int minutes = Convert.ToInt32(args[start + 1], CultureInfo.InvariantCulture);
+        double seconds = args.Length > 2 ? Convert.ToDouble(args[^1], CultureInfo.InvariantCulture) : 0;
+        return new TimeSpan(days, hours, minutes, 0) + TimeSpan.FromSeconds(seconds);
     }
 
     public static object? ToTimeSpan(object?[] args)
@@ -96,42 +80,18 @@ internal static class FunctionExpressions
             throw new ArgumentException("totimespan requires exactly 1 argument.");
         }
 
-        if (args[0] is not string s)
-        {
-            return null;
-        }
-
-        if (TimeSpan.TryParse(s, out TimeSpan result))
-        {
-            return result;
-        }
-
-        return null;
+        return ScalarFunctions.ConvertTo(args[0], ScalarTypes.TimeSpan);
     }
 
-    public static object? Now(object?[] args)
+    internal static DateTime? Clock(string name, object?[] args, DateTime queryTime)
     {
-        if (args.Length != 1 || args[0] is not TimeSpan ts)
+        return args switch
         {
-            return DateTime.UtcNow;
-        }
-
-        return DateTime.UtcNow.Add(ts);
-    }
-
-    public static object? Ago(object?[] args)
-    {
-        if (args.Length != 1)
-        {
-            throw new ArgumentException("ago requires exactly 1 argument.");
-        }
-
-        if (args[0] is not TimeSpan ts)
-        {
-            throw new ArgumentException("ago requires TimeSpan argument.");
-        }
-
-        return DateTime.UtcNow.Subtract(ts);
+            [] when name == "now" => queryTime,
+            [null] => null,
+            [TimeSpan offset] => name == "ago" ? queryTime - offset : queryTime + offset,
+            _ => throw new ArgumentException($"{name} expects a timespan offset.")
+        };
     }
 
     public static string UrlEncode(object?[] args)
