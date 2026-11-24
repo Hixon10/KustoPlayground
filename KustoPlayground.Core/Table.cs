@@ -51,6 +51,7 @@ internal class Column<T> : ColumnBase
 
     internal override void SetValue(Row row, object? value)
     {
+        if (typeof(T) == typeof(object)) value = DynamicValues.FromStorage(value);
         ValidateValue(value);
         row._values[Name] = value;
     }

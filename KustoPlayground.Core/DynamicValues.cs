@@ -1,4 +1,6 @@
 using System.Buffers;
+using System.Collections;
+using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -8,6 +10,30 @@ namespace KustoPlayground.Core;
 
 internal static partial class DynamicValues
 {
+    // Snapshot incoming containers; a caller may dispose its JsonDocument or reuse a mutable input row.
+    internal static object? FromStorage(object? value) => value switch
+    {
+        JsonElement element => Read(element),
+        IReadOnlyDictionary<string, object?> bag => bag.ToDictionary(p => p.Key, p => FromStorage(p.Value), StringComparer.Ordinal),
+        IList list => list.Cast<object?>().Select(FromStorage).ToArray(),
+        _ => value
+    };
+
+    internal static object? PackedScalar(object? value) => value switch
+    {
+        byte or sbyte or short or ushort or int or uint => Convert.ToInt64(value, CultureInfo.InvariantCulture),
+        float number => (double)number,
+        _ => value
+    };
+
+    internal static object InferString(string text)
+    {
+        if (text.Length >= 10 && text[4] == '-' && text[7] == '-' &&
+            DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var date))
+            return date;
+        return Guid.TryParseExact(text, "D", out var guid) ? guid : text;
+    }
+
     internal static string ToText(object? value) => value switch
     {
         object?[] or Dictionary<string, object?> => ToJson(value),
@@ -95,7 +121,7 @@ internal static partial class DynamicValues
                 if (!TrySelect(path, element, out var selected)) return false;
                 element = (JsonElement)selected!;
             }
-            result = Read(element);
+            result = Read(element, inferStrings: path is null);
             return true;
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException
@@ -106,48 +132,25 @@ internal static partial class DynamicValues
         }
     }
 
-    internal static object? Read(JsonElement value) => value.ValueKind switch
+    internal static object? Read(JsonElement value) => Read(value, inferStrings: false);
+
+    private static object? Read(JsonElement value, bool inferStrings) => value.ValueKind switch
     {
         JsonValueKind.Undefined or JsonValueKind.Null => null,
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.Number when value.TryGetInt64(out long n) => n,
         JsonValueKind.Number => value.GetDouble(),
-        JsonValueKind.String => value.GetString(),
-        JsonValueKind.Array => value.EnumerateArray().Select(Read).ToArray(),
-        JsonValueKind.Object => ReadBag(value),
+        JsonValueKind.String => inferStrings ? InferString(value.GetString()!) : value.GetString(),
+        JsonValueKind.Array => value.EnumerateArray().Select(e => Read(e, inferStrings)).ToArray(),
+        JsonValueKind.Object => ReadBag(value, inferStrings),
         _ => throw new InvalidOperationException($"Unexpected JSON token: {value.ValueKind}")
     };
 
-    private static Dictionary<string, object?> ReadBag(JsonElement value)
+    private static Dictionary<string, object?> ReadBag(JsonElement value, bool inferStrings)
     {
         var bag = new Dictionary<string, object?>(StringComparer.Ordinal);
-        foreach (var property in value.EnumerateObject()) bag[property.Name] = Read(property.Value);
-        return bag;
-    }
-
-    internal static Dictionary<string, object?> PackAll(Dictionary<string, object?> row, object?[] args)
-    {
-        bool ignoreEmpty = args switch
-        {
-            [] or [null] => false,
-            [bool flag] => flag,
-            _ => throw new ArgumentException("pack_all expects an optional bool argument.", nameof(args))
-        };
-        var bag = new Dictionary<string, object?>(row.Count, StringComparer.Ordinal);
-        foreach (var (name, value) in row)
-        {
-            if (!ignoreEmpty || value is not (null or "")) bag.Add(name, value);
-        }
-        return bag;
-    }
-
-    internal static Dictionary<string, object?> Pack(object?[] args)
-    {
-        if (args.Length % 2 != 0) throw new ArgumentException("bag_pack expects key/value pairs.");
-        var bag = new Dictionary<string, object?>(StringComparer.Ordinal);
-        for (int i = 0; i < args.Length; i += 2)
-            bag[args[i] as string ?? throw new ArgumentException("Bag keys must be strings.")] = args[i + 1];
+        foreach (var property in value.EnumerateObject()) bag[property.Name] = Read(property.Value, inferStrings);
         return bag;
     }
 }

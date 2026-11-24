@@ -19,7 +19,11 @@ internal sealed partial class QueryEvaluator
     {
         _bindings = bindings;
         _queryTime = parent._queryTime;
-        if (!functionCall) _cache = parent._cache;
+        if (!functionCall)
+        {
+            _cache = parent._cache;
+            _discoveredSchemas = parent._discoveredSchemas;
+        }
     }
 
     private T Cached<T>(Expression expression, Func<T> evaluate)

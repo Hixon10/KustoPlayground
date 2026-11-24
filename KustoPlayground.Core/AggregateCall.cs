@@ -27,6 +27,7 @@ internal sealed class AggregateCall
         {
             "cnt" => "count", "any" => "take_any", "anyif" => "take_anyif",
             "argmax" => "arg_max", "argmin" => "arg_min", "makelist" => "make_list", "makeset" => "make_set",
+            "make_dictionary" => "make_bag",
             _ => spelling
         };
         _predicate = _name switch
@@ -76,7 +77,7 @@ internal sealed class AggregateCall
         {
             "count" => (long)group.Count,
             "countif" => rows.LongCount(),
-            "dcount" or "dcountif" or "count_distinct" or "count_distinctif" => values.Distinct().LongCount(),
+            "dcount" or "dcountif" or "count_distinct" or "count_distinctif" => values.Distinct(DynamicCollections.Comparer).LongCount(),
             "hll" => new DistinctState(values),
             "hll_merge" => DistinctState.Merge(values.Cast<DistinctState>()),
             "sum" or "sumif" or "avg" or "avgif" => NumericAggregates.Total(values, _args[0].ResultType, _name.StartsWith("avg", StringComparison.Ordinal)),
@@ -198,7 +199,7 @@ internal sealed class AggregateCall
     private object?[] Collect(IEnumerable<QueryRow> rows)
     {
         var result = new List<object?>();
-        var seen = _name.StartsWith("make_set", StringComparison.Ordinal) ? new HashSet<object?>() : null;
+        var seen = _name.StartsWith("make_set", StringComparison.Ordinal) ? new HashSet<object?>(DynamicCollections.Comparer) : null;
         foreach (var row in rows)
         {
             var value = Value(0, row);
@@ -213,6 +214,7 @@ internal sealed class AggregateCall
 
         void Add(object? value)
         {
+            value = DynamicValues.PackedScalar(value);
             if ((value is not null || _name == "make_list_with_nulls") && (seen is null || seen.Add(value))) result.Add(value);
         }
     }

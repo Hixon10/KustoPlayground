@@ -8,6 +8,7 @@ public static class TableBuilderFromJson
         = new(new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
         {
             ["bool"] = typeof(bool),
+            ["dynamic"] = typeof(object),
             ["byte"] = typeof(byte),
             ["sbyte"] = typeof(sbyte),
             ["short"] = typeof(short),

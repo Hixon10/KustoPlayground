@@ -16,14 +16,26 @@ internal sealed partial class QueryEvaluator
         var globals = GlobalState.Default;
         var count = new FunctionSymbol("count", ScalarTypes.Long, new Parameter("value", ParameterTypeKind.Scalar, minOccurring: 0))
             .WithResultNameKind(ResultNameKind.PrefixAndFirstArgument).WithResultNamePrefix("count");
-        return globals.WithAggregates(globals.Aggregates.Select(f => f.Name == "count" ? count : f).ToArray());
+        var unpack = globals.GetPlugIn("bag_unpack").Signatures[0];
+        var unpackSignature = new Signature(unpack.CustomReturnType, Tabularity.Tabular,
+            [.. unpack.Parameters, new Parameter("columnsConflict", ScalarTypes.String, minOccurring: 0),
+                new Parameter("ignoredProperties", ScalarTypes.Dynamic, minOccurring: 0)])
+            .WithLayout((signature, args, parameters) =>
+            {
+                for (int i = 0; i < args.Count; i++)
+                    parameters.Add(args[i] is SimpleNamedExpression named ? signature.GetParameter(named.Name.SimpleName)
+                        : i < signature.Parameters.Count ? signature.Parameters[i] : Signature.UnknownParameter);
+            });
+        var bagUnpack = new FunctionSymbol("bag_unpack", unpackSignature);
+        return globals.WithAggregates(globals.Aggregates.Select(f => f.Name == "count" ? count : f).ToArray())
+            .WithPlugIns(globals.PlugIns.Select(f => f.Name == "bag_unpack" ? bagUnpack : f).ToArray());
     }
 
     private KustoCode Analyze(KustoCode code)
     {
         var tables = _tables.Values.Select(t => new TableSymbol(t.Name, t.Schema.Values.Select(c =>
             new ColumnSymbol(c.Name, ColumnType(c.GetColumnType())))));
-        var bound = code.Analyze(QueryGlobals.WithDatabase(new DatabaseSymbol("Playground", tables)));
+        var bound = NormalizeJoinConditions(code).Analyze(QueryGlobals.WithDatabase(new DatabaseSymbol("Playground", tables)));
         return bound.Syntax.GetFirstDescendant<UnionOperator>() is not null ? BindViewUnions(bound) : bound;
     }
 

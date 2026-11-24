@@ -152,22 +152,20 @@ public class TableBuilderFromJsonTests
         Assert.That(tableDef.Columns.Count, Is.EqualTo(TableBuilderFromJson._map.Count));
         Assert.That(tableDef.Rows.Count, Is.EqualTo(1));
 
-        Dictionary<string, object?> actualRow = tableDef.Rows[0];
+        var actualRow = table.Rows[0];
         foreach (var column in tableDef.Columns)
         {
-            Assert.That(actualRow.ContainsKey(column.Name), Is.True, $"Missing column '{column.Name}' in row");
-
-            var value = actualRow[column.Name];
-            Assert.That(value, Is.Not.Null);
-
             Type expectedType = TableBuilderFromJson._map[column.Name];
-            Assert.That(value.GetType(), Is.EqualTo(expectedType));
+            Assert.That(actualRow.Schema[column.Name].GetColumnType(), Is.EqualTo(expectedType));
+            var value = actualRow.Get<object>(column.Name);
+            Assert.That(value, Is.InstanceOf(expectedType));
             Assert.That(value, Is.EqualTo(GetSampleValue(expectedType)));
         }
     }
 
     private static object GetSampleValue(Type type) => type switch
     {
+        var t when t == typeof(object) => new object?[] { "item", 42L, null },
         var t when t == typeof(bool) => true,
         var t when t == typeof(byte) => (byte)123,
         var t when t == typeof(sbyte) => (sbyte)-12,

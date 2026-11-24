@@ -34,8 +34,9 @@ Chromium's system libraries as well. The script publishes the **Release AOT**
 site, builds the separate Playwright project, installs its matching headless
 Chromium, and runs the tests. They serve only the published files at the GitHub
 Pages subpath, import CSV (paste and file upload) and JSON, and check the KQL
-results, including grouped aggregation, typed parsing, schema inspection, and
-filtering and joining imported rows with missing values. No development server or external service is involved.
+results, including grouped aggregation, typed parsing, schema inspection,
+missing values, and expanding nested JSON and joining it to a lookup table.
+No development server or external service is involved.
 
 ## Deployment
 
@@ -57,14 +58,17 @@ copy or personal deployment token is needed.
 - [endswith](https://learn.microsoft.com/en-us/kusto/query/endswith-operator)
 - [!endswith](https://learn.microsoft.com/en-us/kusto/query/not-endswith-operator)
 - [matches regex](https://learn.microsoft.com/en-us/kusto/query/matches-regex-operator)
+- Whole-term search: `has`, `has_cs`, their negations, `has_any`, and `has_all`
 - `==`, `=~`, `!=`, `!~`
 
 ## Supported Tabular operators:
 - [extend](https://learn.microsoft.com/en-us/kusto/query/extend-operator)
 - [project](https://learn.microsoft.com/en-us/kusto/query/project-operator)
+- [project-away](https://learn.microsoft.com/en-us/kusto/query/project-away-operator)
 - [take](https://learn.microsoft.com/en-us/kusto/query/take-operator)
 - [where](https://learn.microsoft.com/en-us/kusto/query/where-operator)
 - [sort](https://learn.microsoft.com/en-us/kusto/query/sort-operator)
+- [top](https://learn.microsoft.com/en-us/kusto/query/top-operator)
 - [count](https://learn.microsoft.com/en-us/kusto/query/count-operator)
 - [summarize](https://learn.microsoft.com/en-us/kusto/query/summarize-operator)
 - [distinct](https://learn.microsoft.com/en-us/kusto/query/distinct-operator)
@@ -72,6 +76,8 @@ copy or personal deployment token is needed.
 - [print](https://learn.microsoft.com/en-us/kusto/query/print-operator)
 - [parse](https://learn.microsoft.com/en-us/kusto/query/parse-operator) (`simple`, `relaxed`, or `regex` with flags)
 - [getschema](https://learn.microsoft.com/en-us/kusto/query/getschema-operator) (column names, ordinals and types, even for empty inputs)
+- [mv-expand](https://learn.microsoft.com/en-us/kusto/query/mv-expand-operator) and [mv-apply](https://learn.microsoft.com/en-us/kusto/query/mv-apply-operator)
+- [evaluate bag_unpack](https://learn.microsoft.com/en-us/kusto/query/bag-unpack-plugin) (inferred or explicit output schema)
 
 `summarize` supports grouping, conditional aggregates, row selectors such as
 `arg_max`, collections, variance/covariance, and nearest-rank percentiles. For example:
@@ -85,6 +91,26 @@ StormEvents
 Distinct counts and percentiles are computed exactly in memory. Shuffle hints do
 not change local execution. The local `hll` state can be merged and counted within
 a query; it is not an exchange format for Azure Data Explorer sketches.
+
+## Working with nested JSON
+
+Declare a JSON import column as `"Type": "dynamic"` to store arrays, property
+bags, scalars, and nulls together. Use dot or bracket access for nested values,
+`gettype()` to inspect a value, and `mv-expand` to produce one row per element.
+Array, set, and bag functions let you sort, combine, and update values without
+expanding them. This example totals units sold across two orders:
+
+```kusto
+let Catalog = datatable(Sku:int, Item:string)[7, "Pen", 8, "Ink"];
+datatable(Items:dynamic)[dynamic([{"sku":7,"units":2},{"sku":8,"units":1}]), dynamic([{"sku":7,"units":3}])]
+| mv-expand Items
+| project Sku=tolong(Items.sku), Units=tolong(Items.units)
+| join kind=inner (Catalog) on Sku
+| summarize Sold=sum(Units) by Item
+```
+
+Cast dynamic join keys to a scalar type first. Integer keys can match across
+`int` and `long` without changing the types of their output columns.
 
 ## Missing values
 
@@ -142,5 +168,4 @@ Events
 
 ## TODO
 - create a table from free form text
-- mv-expand operator
 - everything else...

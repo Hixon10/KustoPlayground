@@ -19,12 +19,14 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         var code = KustoCode.Parse(query);
         // Keep the standalone legacy operators' coercions; typed operators and let bodies use the binder.
         if (code.Syntax.GetFirstDescendant<LetStatement>() is not null ||
-            code.Syntax.GetFirstDescendant<Expression>(NeedsBinding) is not null)
+            code.Syntax.GetFirstDescendant<Expression>(NeedsBinding) is not null ||
+            code.Syntax.GetDescendants<NameReference>().Any(n => _tables.TryGetValue(n.SimpleName, out var table)
+                && table.Schema.Values.Any(c => c.GetColumnType() == typeof(object))))
         {
             code = Analyze(code);
         }
         var diagnostics = code.HasSemantics ? code.GetDiagnostics() : code.GetSyntaxDiagnostics();
-        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)
+        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && !IsRuntimeDynamicCheck(code, d))
             .Select(d => new ExecutionError { Code = d.Code, Description = d.Message }).ToList();
         if (errors.Count != 0) return new ExecutionResult { ExecutionErrors = errors };
         if (code.Syntax is not QueryBlock block || block.Statements.Count == 0 ||
@@ -36,13 +38,29 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         return new ExecutionResult { ResultRows = scope.ExecuteExpression(final.Expression).Select(r => r.AsReadOnly()).ToList() };
     }
 
+    private static bool IsRuntimeDynamicCheck(KustoCode code, Diagnostic diagnostic)
+    {
+        // The binder knows the shape of literals more precisely than that of a stored dynamic column.
+        // A missing slot or wrong index kind returns null for both, not an error on the literal alone.
+        if (diagnostic.Code is not ("KS141" or "KS147" or "KS234" or "KS235") || !diagnostic.HasLocation) return false;
+        var node = code.Syntax.GetNodeAt(diagnostic.Start, diagnostic.Length);
+        if (diagnostic.Code is "KS234" or "KS235")
+            return node is Expression { ResultType: DynamicSymbol } && node.GetFirstAncestor<FunctionCallExpression>() is { } call
+                && DynamicCollections.Supports(call.Name.SimpleName) && call.ArgumentList.Expressions.Any(a => a.Element == node);
+        var bracket = node.GetFirstAncestorOrSelf<BracketedExpression>();
+        return bracket?.Parent is ElementExpression { Expression.ResultType: DynamicSymbol } access && access.Selector == bracket &&
+            (diagnostic.Code == "KS147" ? node == bracket : node == bracket.Expression);
+    }
+
     private static bool NeedsBinding(Expression expression) => expression switch
     {
-        SummarizeOperator or ParseOperator or GetSchemaOperator or ToScalarExpression or UnionOperator or JoinOperator => true,
-        FunctionCallExpression f => f.Name.SimpleName is "bin" or "floor" or "bin_at" or "strcat" or "trim"
+        SummarizeOperator or ParseOperator or GetSchemaOperator or ToScalarExpression or UnionOperator or JoinOperator
+            or DynamicExpression or DataTableExpression or EvaluateOperator or PathExpression or ElementExpression
+            or MvApplyOperator or MvExpandOperator or TopOperator or ProjectAwayOperator => true,
+        FunctionCallExpression f => DynamicCollections.Supports(f.Name.SimpleName) || f.Name.SimpleName is "bin" or "floor" or "bin_at" or "strcat" or "trim"
             or "toint" or "tolong" or "toreal" or "todouble" or "tostring" or "tobool" or "toboolean"
-            or "pack_all" or "parse_json" or "parsejson" or "todynamic" or "toobject" or "extract_json" or "extractjson"
-            or "coalesce" or "case" or "iff" or "iif",
+            or "parse_json" or "parsejson" or "todynamic" or "toobject" or "extract_json" or "extractjson"
+            or "coalesce" or "case" or "iff" or "iif" or "gettype" or "toguid",
         _ => false
     };
 
@@ -50,6 +68,8 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
     {
         switch (expr)
         {
+            case DataTableExpression data:
+                return ReadDataTable(data);
             case NameReference nameRef:
                 return ReadTable(nameRef.SimpleName, nameRef);
             case ParenthesizedExpression parens:
@@ -62,7 +82,12 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
                 return ApplyUnion(null, union);
             case PipeExpression pipe:
             {
-                if (pipe.Operator is GetSchemaOperator schema) return GetSchema(schema);
+                if (pipe.Operator is GetSchemaOperator schema)
+                {
+                    if (pipe.Expression.ResultType is TableSymbol { IsOpen: true })
+                        _ = ExecuteExpression(pipe.Expression);
+                    return GetSchema(schema);
+                }
                 var left = ExecuteExpression(pipe.Expression);
                 return ApplyOperator(left, pipe.Operator);
             }
@@ -107,6 +132,13 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             case SortOperator sort:
                 return ApplySort(source, sort);
 
+            case TopOperator top:
+                return TakeRows(OrderRows(source, [top.ByExpression]), top.Expression);
+
+            case ProjectAwayOperator away:
+                var retained = ColumnsOf((PipeExpression)away.Parent!);
+                return source.Select(row => retained.ToDictionary(c => c.Name, c => row[c.Name], StringComparer.Ordinal));
+
             case CountOperator countOperator:
                 return ApplyCountOperator(source);
 
@@ -128,6 +160,15 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
 
             case JoinOperator join:
                 return ApplyJoin(source, join);
+
+            case EvaluateOperator plugin:
+                return UnpackBag(source, plugin);
+
+            case MvExpandOperator expand:
+                return ApplyMvExpand(source, expand);
+
+            case MvApplyOperator apply:
+                return ApplyMvApply(source, apply);
 
             default:
                 throw new NotSupportedException($"Unsupported operator: {op.GetType().Name}");
@@ -205,7 +246,17 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             }
             else
             {
-                match |= Matches(evaluate(expression));
+                var candidate = evaluate(expression);
+                if (expression.ResultType is DynamicSymbol)
+                {
+                    if (candidate is QueryRow || (!expression.IsConstant && expression.GetFirstDescendantOrSelf<NameReference>(
+                        n => row.ContainsKey(n.SimpleName)) is not null))
+                        throw new ArgumentException("in expects a constant dynamic array, not a row-dependent value or a property bag.");
+                    if (inExpression.Left.ResultType is DynamicSymbol && expression.ResultType is DynamicArraySymbol array &&
+                        array.ElementType != ScalarTypes.String && array.ElementType is not DynamicSymbol)
+                        throw new ArgumentException("Cast the dynamic left operand before testing membership in a non-string array.");
+                }
+                match |= Matches(candidate);
                 if (match is true) return !inverseResult;
             }
         }
@@ -252,6 +303,33 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         if (expression.Kind == SyntaxKind.AndExpression && left is false) return false;
         if (expression.Kind == SyntaxKind.OrExpression && left is true) return true;
         var right = evaluate(expression.Right);
+        bool dynamicLeft = expression.Left.ResultType is DynamicSymbol;
+        bool dynamicRight = expression.Right.ResultType is DynamicSymbol;
+        if (dynamicLeft || dynamicRight)
+        {
+            if (expression.Kind is SyntaxKind.AddExpression or SyntaxKind.SubtractExpression or SyntaxKind.MultiplyExpression
+                or SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression)
+            {
+                if (dynamicLeft && dynamicRight) throw new ArgumentException("Cast at least one dynamic arithmetic operand to a scalar.");
+                if (dynamicLeft) left = ScalarFunctions.ConvertTo(left, expression.Right.ResultType);
+                else right = ScalarFunctions.ConvertTo(right, expression.Left.ResultType);
+            }
+            else if (expression.Kind is SyntaxKind.GreaterThanExpression or SyntaxKind.LessThanExpression or
+                SyntaxKind.GreaterThanOrEqualExpression or SyntaxKind.LessThanOrEqualExpression)
+            {
+                // Compare numeric payloads without narrowing; strings must first be parsed as the other operand's type.
+                if (dynamicLeft && !dynamicRight && (left is null || !CompareUtils.IsNumeric(left) || right is not null && !CompareUtils.IsNumeric(right)))
+                    left = ScalarFunctions.ConvertTo(left, expression.Right.ResultType);
+                if (dynamicRight && !dynamicLeft && (right is null || !CompareUtils.IsNumeric(right) || left is not null && !CompareUtils.IsNumeric(left)))
+                    right = ScalarFunctions.ConvertTo(right, expression.Left.ResultType);
+            }
+            else if (expression.Kind is SyntaxKind.ContainsExpression or SyntaxKind.NotContainsExpression or SyntaxKind.StartsWithExpression
+                or SyntaxKind.NotStartsWithExpression or SyntaxKind.EndsWithExpression or SyntaxKind.NotEndsWithExpression or SyntaxKind.MatchesRegexExpression)
+            {
+                if (dynamicLeft) left = DynamicValues.ToText(left);
+                if (dynamicRight) right = DynamicValues.ToText(right);
+            }
+        }
         return expression.Kind switch
         {
             SyntaxKind.AndExpression => (bool?)left & (bool?)right,
@@ -260,6 +338,9 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             SyntaxKind.EqualTildeExpression => CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase),
             SyntaxKind.NotEqualExpression => !CompareUtils.AreEqual(left, right, StringComparison.Ordinal),
             SyntaxKind.BangTildeExpression => !CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase),
+            SyntaxKind.HasExpression or SyntaxKind.HasCsExpression or SyntaxKind.NotHasExpression or SyntaxKind.NotHasCsExpression =>
+                DynamicValues.HasTerm(left, DynamicValues.ToText(right), expression.Kind is SyntaxKind.HasCsExpression or SyntaxKind.NotHasCsExpression)
+                != (expression.Kind is SyntaxKind.NotHasExpression or SyntaxKind.NotHasCsExpression),
             SyntaxKind.ContainsExpression => StringOperations.ContainsOperation(left, right),
             SyntaxKind.NotContainsExpression => !StringOperations.ContainsOperation(left, right),
             SyntaxKind.StartsWithExpression => StringOperations.StartsWithOperation(left, right),
@@ -309,7 +390,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             case CompoundStringLiteralExpression compound:
                 return compound.LiteralValue;
             case DynamicExpression dynamicLiteral:
-                return Evaluate(dynamicLiteral.Expression);
+                return Cached(dynamicLiteral, () => EvalDynamicLiteral(dynamicLiteral.Expression));
             case JsonObjectExpression json:
                 var bag = new QueryRow();
                 foreach (var pair in json.Pairs)
@@ -337,6 +418,10 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
                 return EvaluateBetweenExpression(between, Evaluate);
             case InExpression membership:
                 return EvaluateInExpression(membership, row, Evaluate);
+            case HasAnyExpression any:
+                return HasTerms(Evaluate(any.Left), any.Right, Evaluate, all: false);
+            case HasAllExpression all:
+                return HasTerms(Evaluate(all.Left), all.Right, Evaluate, all: true);
             case FunctionCallExpression call when aggregate is not null && IsAggregate(call):
                 return aggregate(call);
             case FunctionCallExpression call when _bindings.GetValueOrDefault(call.Name.SimpleName) is FunctionBinding udf:
@@ -344,8 +429,11 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
                 return scope.EvalOperand(body, new QueryRow());
             case FunctionCallExpression call when call.Name.SimpleName is "coalesce" or "iff" or "iif" or "case":
                 return EvaluateConditional(call, Evaluate);
+            case FunctionCallExpression call when DynamicCollections.Supports(call.Name.SimpleName):
+                var args = call.ArgumentList.Expressions.Select(e => e.Element is StarExpression ? null : Evaluate(e.Element)).ToArray();
+                return DynamicCollections.Evaluate(call, args, row);
             case FunctionCallExpression call:
-                return EvaluateFunction(call, call.ArgumentList.Expressions.Select(e => Evaluate(e.Element)).ToArray(), row);
+                return EvaluateFunction(call, call.ArgumentList.Expressions.Select(e => Evaluate(e.Element)).ToArray());
             default:
                 throw new NotSupportedException($"Unsupported operand: {expr.GetType().Name}");
         }
@@ -369,7 +457,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         return Result(evaluate(args[^1].Element));
     }
 
-    private object? EvaluateFunction(FunctionCallExpression call, object?[] args, QueryRow row)
+    private object? EvaluateFunction(FunctionCallExpression call, object?[] args)
     {
         string functionName = call.Name.SimpleName;
         return functionName switch
@@ -385,6 +473,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             "todatetime" => FunctionExpressions.ToDateTime(args),
             "make_timespan" => FunctionExpressions.MakeTimeSpan(args),
             "totimespan" => FunctionExpressions.ToTimeSpan(args),
+            "toguid" => ScalarFunctions.ConvertTo(args[0], ScalarTypes.Guid),
             "now" or "ago" => FunctionExpressions.Clock(functionName, args, _queryTime),
             "bin_at" => ScalarMath.Bin(args, call.ResultType),
             "bin" or "floor" or "strcat" or "trim" or "toint" or "tolong" or "toreal" or "todouble"
@@ -394,23 +483,69 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             "isempty" when args.Length == 1 => args[0] is null or "",
             "isnotempty" when args.Length == 1 => args[0] is not (null or ""),
             "not" => !(bool?)args[0],
-            "pack_array" => args,
             "parse_json" or "todynamic" or "parsejson" or "toobject" =>
                 call.ArgumentList.Expressions[0].Element.ResultType is DynamicSymbol ? args[0] : DynamicValues.Parse(args[0]),
             "extract_json" or "extractjson" => DynamicValues.Extract((string?)args[0], args[1], args.Length == 3 ? (TypeSymbol?)args[2] : null),
-            "pack_all" => DynamicValues.PackAll(row, args),
             "gettype" => args[0] switch
             {
                 null => "null",
                 QueryRow => "dictionary",
                 object?[] => "array",
+                float or double when call.ArgumentList.Expressions[0].Element.ResultType is DynamicSymbol => "double",
                 var v => ColumnType(v.GetType()).Name
             },
             "new_guid" => Guid.NewGuid(),
-            "bag_pack" => DynamicValues.Pack(args),
             "dcount_hll" => args[0] is DistinctState state ? state.Count : null,
             _ => throw new NotSupportedException($"Function {functionName} not implemented.")
         };
+    }
+
+    private IEnumerable<QueryRow> ReadDataTable(DataTableExpression data)
+    {
+        var columns = ((TableSymbol)data.ResultType).Columns;
+        if (columns.Count == 0 || data.Values.Count % columns.Count != 0)
+            throw new ArgumentException("datatable values must contain a whole number of rows.");
+        var empty = new QueryRow();
+        for (int i = 0; i < data.Values.Count;)
+        {
+            var row = new QueryRow();
+            foreach (var column in columns)
+                row.Add(column.Name, ScalarFunctions.ConvertTo(EvalOperand(data.Values[i++].Element, empty), column.Type));
+            yield return row;
+        }
+    }
+
+    private object? EvalDynamicLiteral(Expression literal) => literal switch
+    {
+        JsonArrayExpression array => array.Values.Select(item => EvalDynamicLiteral(item.Element)).ToArray(),
+        JsonObjectExpression bag => bag.Pairs.Aggregate(new QueryRow(), (result, pair) =>
+        {
+            result[pair.Element.Name.ValueText] = EvalDynamicLiteral(pair.Element.Value);
+            return result;
+        }),
+        LiteralExpression leaf => ParseLiteral(leaf) switch
+        {
+            string text => DynamicValues.InferString(text),
+            TimeSpan span when !leaf.Token.Text.Contains('(', StringComparison.Ordinal) => span.Ticks,
+            var scalar => DynamicValues.PackedScalar(scalar)
+        },
+        _ => EvalOperand(literal, new QueryRow())
+    };
+
+    private bool HasTerms(object? value, ExpressionList list, Func<Expression, object?> evaluate, bool all)
+    {
+        bool Match(object? item) => item is object?[] items
+            ? all ? Array.TrueForAll(items, Match) : Array.Exists(items, Match)
+            : item is not null && DynamicValues.HasTerm(value, DynamicValues.ToText(item), caseSensitive: false);
+        foreach (var term in list.Expressions)
+        {
+            var expr = UnwrapParens(term.Element);
+            bool hit = expr.ResultType is TableSymbol
+                ? Match(Cached(expr, () => ExecuteExpression(expr).Select(r => r.Values.FirstOrDefault()).ToArray()))
+                : Match(evaluate(expr));
+            if (hit != all) return hit;
+        }
+        return all;
     }
 
     private IEnumerable<QueryRow> ApplyProject(IEnumerable<QueryRow> source, ProjectOperator project) =>
@@ -419,42 +554,64 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
     private IEnumerable<QueryRow> SelectColumns(IEnumerable<QueryRow> source,
         SyntaxList<SeparatedElement<Expression>> expressions, bool extend)
     {
-        var props = expressions.Select((item, index) => item.Element switch
+        var schema = (expressions.Parent as Expression)?.ResultType as TableSymbol;
+        int ordinal = 0;
+        var props = expressions.Select(item =>
         {
-            NameReference name => (Alias: name.SimpleName, Expr: (Expression)name),
-            SimpleNamedExpression named => (Alias: named.Name.SimpleName, Expr: named.Expression),
-            _ when extend && expressions.Parent is ExtendOperator { ResultType: TableSymbol outputs } =>
-                (Alias: outputs.Columns.FirstOrDefault(c => c.Source == item.Element)?.Name ??
-                    throw new ArgumentException($"Cannot determine the output column for {item.Element}"), Expr: item.Element),
-            _ when !extend && expressions.Parent is Expression { ResultType: TableSymbol schema } =>
-                (Alias: schema.Columns[index].Name, Expr: item.Element),
-            _ => throw new NotSupportedException($"Unsupported column expression: {item.Element.Kind}")
+            var value = UnwrapOutput(item.Element);
+            if (value.RawResultType is TupleSymbol tuple)
+            {
+                var names = tuple.Columns.Select(c => extend
+                    ? schema!.Columns.First(o => o.Source == c.Source).Name
+                    : schema!.Columns[ordinal++].Name).ToArray();
+                return (Names: names, Expr: value, Tuple: value.ResultType is TupleSymbol);
+            }
+            string alias = item.Element switch
+            {
+                NameReference name => name.SimpleName,
+                SimpleNamedExpression named => named.Name.SimpleName,
+                _ when extend => schema?.Columns.FirstOrDefault(c => c.Source == item.Element)?.Name ??
+                    throw new ArgumentException($"Cannot determine the output column for {item.Element}."),
+                _ when schema is not null => schema.Columns[ordinal].Name,
+                _ => throw new NotSupportedException($"Unsupported column expression: {item.Element.Kind}")
+            };
+            ordinal++;
+            return (Names: (string[])[alias], Expr: value, Tuple: false);
         }).ToArray();
 
         return source.Select(row =>
         {
             // Sibling expressions, including pack_all(), see the incoming row, not each other's output.
             var dict = extend ? new QueryRow(row) : new QueryRow();
-            foreach (var (alias, expression) in props)
+            foreach (var (names, expression, tuple) in props)
             {
-                dict[alias] = EvalOperand(expression, row);
+                var value = EvalOperand(expression, row);
+                if (!tuple) dict[names[0]] = value;
+                else
+                {
+                    var fields = (object?[])value!;
+                    for (int i = 0; i < names.Length; i++) dict[names[i]] = fields[i];
+                }
             }
 
             return dict;
         });
     }
 
-    private IEnumerable<QueryRow> ApplySort(IEnumerable<QueryRow> source, SortOperator sort)
+    private IEnumerable<QueryRow> ApplySort(IEnumerable<QueryRow> source, SortOperator sort) =>
+        OrderRows(source, sort.Expressions.Select(item => item.Element));
+
+    private IEnumerable<QueryRow> OrderRows(IEnumerable<QueryRow> source, IEnumerable<Expression> keys)
     {
         IOrderedEnumerable<QueryRow>? ordered = null;
-        foreach (var item in sort.Expressions)
+        foreach (var expression in keys)
         {
-            var key = item.Element as OrderedExpression;
+            var key = expression as OrderedExpression;
             var order = key?.Ordering;
             bool descending = order?.AscOrDescKeyword?.Kind != SyntaxKind.AscKeyword;
             bool nullsFirst = order?.NullsClause is { } nulls ? nulls.FirstOrLastKeyword.Kind == SyntaxKind.FirstKeyword : !descending;
             var comparer = Comparer<object?>.Create((a, b) => CompareUtils.SortComparison(a, b, descending, nullsFirst));
-            object? SelectKey(QueryRow row) => EvalOperand(key?.Expression ?? item.Element, row);
+            object? SelectKey(QueryRow row) => EvalOperand(key?.Expression ?? expression, row);
             ordered = ordered is null ? source.OrderBy(SelectKey, comparer) : ordered.ThenBy(SelectKey, comparer);
         }
         return ordered ?? source;
@@ -463,9 +620,11 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
     private IEnumerable<QueryRow> ApplyExtend(IEnumerable<QueryRow> source, ExtendOperator extend) =>
         SelectColumns(source, extend.Expressions, extend: true);
 
-    private IEnumerable<QueryRow> ApplyTake(IEnumerable<QueryRow> source, TakeOperator take)
+    private IEnumerable<QueryRow> ApplyTake(IEnumerable<QueryRow> source, TakeOperator take) => TakeRows(source, take.Expression);
+
+    private IEnumerable<QueryRow> TakeRows(IEnumerable<QueryRow> source, Expression count)
     {
-        var limit = EvalOperand(take.Expression, new QueryRow());
+        var limit = EvalOperand(count, new QueryRow());
         if (limit is not (int or long)) throw new ArgumentException("take expects an integer.");
         return source.Take((int)Math.Clamp(Convert.ToInt64(limit, CultureInfo.InvariantCulture), 0, int.MaxValue));
     }

@@ -78,6 +78,7 @@ internal static class ScalarFunctions
         }
         if (type == ScalarTypes.DateTime)
         {
+            if (value is long ticks) return ticks >= 0 && ticks <= DateTime.MaxValue.Ticks ? new DateTime(ticks, DateTimeKind.Utc) : null;
             if (value is DateTime date) return Utc(date);
             if (value is DateTimeOffset offset) return offset.UtcDateTime;
             return value is string text && DateTime.TryParse(text, Culture,
@@ -85,6 +86,7 @@ internal static class ScalarFunctions
         }
         if (type == ScalarTypes.TimeSpan)
         {
+            if (value is long ticks) return TimeSpan.FromTicks(ticks);
             if (value is TimeSpan span) return span;
             return value is string text && TimeSpan.TryParse(text, Culture, out span) ? span : null;
         }

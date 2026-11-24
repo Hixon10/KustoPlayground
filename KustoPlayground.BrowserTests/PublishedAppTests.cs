@@ -114,6 +114,32 @@ public class PublishedAppTests : PageTest
     }
 
     [Test]
+    public async Task ExpandImportedDynamicValuesAndJoinInPublishedWasm()
+    {
+        await Page.GetByRole(AriaRole.Button, new() { Name = "JSON" }).ClickAsync();
+        await Page.GetByLabel("JSON table representation:").FillAsync("""
+            {
+              "Name": "Orders",
+              "Columns": [{"Name":"OrderId","Type":"int"},{"Name":"Items","Type":"dynamic"}],
+              "Rows": [
+                {"OrderId":1,"Items":[{"sku":7,"units":2},{"sku":8,"units":1}]},
+                {"OrderId":2,"Items":[{"sku":7,"units":3}]},
+                {"OrderId":3,"Items":[]}
+              ]
+            }
+            """);
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add Table" }).ClickAsync();
+        await Expect(Page.GetByText("JSON table added successfully.")).ToBeVisibleAsync();
+        await AssertQuery("""
+            let Catalog = datatable(Sku:int, Item:string)[7, 'Pen', 8, 'Ink'];
+            Orders | mv-expand Items
+            | project Sku=tolong(Items.sku), Units=tolong(Items.units)
+            | join kind=inner (Catalog) on Sku
+            | summarize Sold=sum(Units) by Item | sort by Sold desc
+            """, "Item=Pen, Sold=5", "Item=Ink, Sold=1");
+    }
+
+    [Test]
     public async Task QueryMissingValuesInPublishedWasm()
     {
         await Page.GetByRole(AriaRole.Button, new() { Name = "JSON" }).ClickAsync();

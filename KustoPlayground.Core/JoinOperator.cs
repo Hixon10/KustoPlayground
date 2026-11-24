@@ -1,5 +1,7 @@
 using Kusto.Language.Symbols;
 using Kusto.Language.Syntax;
+using Kusto.Language;
+using System.Text;
 using QueryRow = System.Collections.Generic.Dictionary<string, object?>;
 
 namespace KustoPlayground.Core;
@@ -12,6 +14,40 @@ internal sealed partial class QueryEvaluator
     {
         internal List<QueryRow> Rows { get; } = [];
         internal bool Matched { get; set; }
+    }
+
+    // Bind all key pairs as explicit left/right equalities. The language package's shorthand
+    // check rejects compatible int/long keys and misses dynamic/dynamic keys.
+    private static KustoCode NormalizeJoinConditions(KustoCode code)
+    {
+        var edits = new List<(Expression Original, string Replacement)>();
+        foreach (var clause in code.Syntax.GetDescendants<JoinOnClause>())
+            foreach (var item in clause.Expressions) Normalize(UnwrapParens(item.Element));
+        if (edits.Count == 0) return code;
+        var text = new StringBuilder(code.Text);
+        foreach (var (original, replacement) in edits.OrderByDescending(e => e.Original.TextStart))
+            text.Remove(original.TextStart, original.Width).Insert(original.TextStart, replacement);
+        return KustoCode.Parse(text.ToString(), code.Globals);
+
+        void Normalize(Expression expression)
+        {
+            switch (expression)
+            {
+                case NameReference name when !name.ContainsSyntaxDiagnostics:
+                    var key = KustoFacts.GetBracketedName(name.SimpleName);
+                    edits.Add((name, $"$left.{key} == $right.{key}"));
+                    break;
+                case BinaryExpression { Kind: SyntaxKind.AndExpression } and:
+                    Normalize(UnwrapParens(and.Left));
+                    Normalize(UnwrapParens(and.Right));
+                    break;
+                case BinaryExpression { Kind: SyntaxKind.EqualExpression } eq
+                    when UnwrapParens(eq.Left) is PathExpression { Expression: NameReference { SimpleName: "$right" } }
+                    && UnwrapParens(eq.Right) is PathExpression { Expression: NameReference { SimpleName: "$left" } }:
+                    edits.Add((eq, $"{eq.Right} == {eq.Left}"));
+                    break;
+            }
+        }
     }
 
     private IEnumerable<QueryRow> ApplyJoin(IEnumerable<QueryRow> source, JoinOperator op)

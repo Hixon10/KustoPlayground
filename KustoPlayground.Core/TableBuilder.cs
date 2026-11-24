@@ -42,7 +42,7 @@ internal static class TableBuilder
             foreach (var col in columns)
             {
                 if (row.TryGetValue(col.Name, out var value))
-                    parsedRow[col.Name] = ParseValue(value?.ToString(), columnToType[col.Name]);
+                    parsedRow[col.Name] = columnToType[col.Name] == typeof(object) ? value : ParseValue(value?.ToString(), columnToType[col.Name]);
             }
 
             table.AddRow(parsedRow);
@@ -80,6 +80,7 @@ internal static class TableBuilder
 
     internal static ColumnBase Create(Type type, string name, bool isNullable)
     {
+        if (type == typeof(object)) return new Column<object>(name, isNullable);
         if (type == typeof(int)) return new Column<int>(name, isNullable);
         if (type == typeof(long)) return new Column<long>(name, isNullable);
         if (type == typeof(float)) return new Column<float>(name, isNullable);

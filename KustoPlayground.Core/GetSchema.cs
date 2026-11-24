@@ -6,15 +6,15 @@ namespace KustoPlayground.Core;
 
 internal sealed partial class QueryEvaluator
 {
-    private static IEnumerable<QueryRow> GetSchema(GetSchemaOperator op)
+    private IEnumerable<QueryRow> GetSchema(GetSchemaOperator op)
     {
         if (op.KindParameter is not null) throw new NotSupportedException("Only the tabular getschema output is supported.");
-        if (op.Parent is not PipeExpression { Expression.ResultType: TableSymbol input })
+        if (op.Parent is not PipeExpression pipe || pipe.Expression.ResultType is not TableSymbol)
             throw new ArgumentException("getschema requires tabular input.");
 
         // The binder appends parse captures, including overwrites; the row keeps the original ordinal.
         var columns = new Dictionary<string, ColumnSymbol>(StringComparer.Ordinal);
-        foreach (var col in input.Columns) columns[col.Name] = col;
+        foreach (var col in ColumnsOf(pipe.Expression)) columns[col.Name] = col;
         int ordinal = 0;
         foreach (var column in columns.Values)
         {
