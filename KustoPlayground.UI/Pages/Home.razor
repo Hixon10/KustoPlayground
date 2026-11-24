@@ -247,6 +247,13 @@
         }
     }
 
+    private static string? FormatCell(object? value) => value switch
+    {
+        object?[] items => JsonSerializer.Serialize(items, ExecutionResultJsonContext.Default.ObjectArray),
+        Dictionary<string, object?> bag => JsonSerializer.Serialize(bag, ExecutionResultJsonContext.Default.DictionaryStringObject),
+        _ => value?.ToString()
+    };
+
     private void ExecuteKusto()
     {
         Results = new List<string>();
@@ -263,7 +270,7 @@
             {
                 Results = executeResults.ResultRows
                     .Select(row =>
-                        string.Join(", ", row.Select(kv => $"{kv.Key}={kv.Value}")))
+                        string.Join(", ", row.Select(kv => $"{kv.Key}={FormatCell(kv.Value)}")))
                     .ToList();
 
                 if (Results.Count == 0)

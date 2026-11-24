@@ -6,6 +6,8 @@ internal static class CompareUtils
 {
     internal static bool AreEqual(object? left, object? right, StringComparison comparisonType)
     {
+        if (left is long a && right is long b) return a == b;
+        if (left is decimal x && right is decimal y) return x == y;
         if (left == null && right == null)
         {
             return true;
@@ -50,6 +52,8 @@ internal static class CompareUtils
 
     internal static int Compare(object? left, object? right)
     {
+        if (left is long a && right is long b) return a.CompareTo(b);
+        if (left is decimal x && right is decimal y) return x.CompareTo(y);
         if (left == null || right == null)
         {
             throw new InvalidOperationException("Cannot compare null values");

@@ -5,6 +5,7 @@ namespace KustoPlayground.Core;
 [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Default)]
 [JsonSerializable(typeof(ExecutionResult))]
 [JsonSerializable(typeof(ExecutionError))]
+[JsonSerializable(typeof(object[]))]
 [JsonSerializable(typeof(Dictionary<string, object?>))]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(long))]

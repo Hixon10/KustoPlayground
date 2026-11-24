@@ -9,7 +9,7 @@ namespace KustoPlayground.Core;
 /// <summary>
 /// Main interface to interact with a Kusto database.
 /// </summary>
-public class KustoDatabase
+public partial class KustoDatabase
 {
     private readonly ConcurrentDictionary<string, Table> _tables = new();
 
@@ -34,9 +34,22 @@ public class KustoDatabase
     {
         try
         {
+            ArgumentException.ThrowIfNullOrEmpty(query);
+            var code = KustoCode.Parse(query);
+            if (code.Syntax.GetFirstDescendant<SummarizeOperator>() is not null)
+            {
+                code = AnalyzeSummaries(code);
+                var errors = code.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error)
+                    .Select(d => new ExecutionError { Code = d.Code, Description = d.Message }).ToList();
+                if (errors.Count != 0)
+                {
+                    return new ExecutionResult { ExecutionErrors = errors };
+                }
+            }
+
             return new ExecutionResult
             {
-                ResultRows = ExecuteQueryInternal(query)
+                ResultRows = ExecuteQueryInternal(code)
             };
         }
         catch (Exception ex)
@@ -55,15 +68,8 @@ public class KustoDatabase
         }
     }
 
-    private List<IReadOnlyDictionary<string, object?>> ExecuteQueryInternal(string query)
+    private List<IReadOnlyDictionary<string, object?>> ExecuteQueryInternal(KustoCode code)
     {
-        if (string.IsNullOrEmpty(query))
-        {
-            throw new ArgumentException("query is null or empty");
-        }
-
-        var code = KustoCode.Parse(query);
-
         if (code.Syntax is not QueryBlock block)
         {
             throw new InvalidOperationException("Expected a QueryBlock at root.");
@@ -172,6 +178,9 @@ public class KustoDatabase
             case DistinctOperator distinctOperator:
                 return ApplyDistinctOperator(source, distinctOperator);
 
+            case SummarizeOperator summarize:
+                return ApplySummarize(source, summarize);
+
             default:
                 throw new NotSupportedException($"Unsupported operator: {op.GetType().Name}");
         }
@@ -244,24 +253,11 @@ public class KustoDatabase
     {
         bool Predicate(Dictionary<string, object?> row)
         {
-            object? result = EvaluateCondition(filter.Condition, row);
+            object? result = EvalOperand(filter.Condition, row);
             return Convert.ToBoolean(result, CultureInfo.InvariantCulture);
         }
 
         return source.Where(Predicate);
-    }
-
-    private object? EvaluateCondition(Expression expr, Dictionary<string, object?> row)
-    {
-        return expr switch
-        {
-            BinaryExpression be => EvaluateBinary(be, row),
-            NameReference nameRef => GetPropValue(row, nameRef.Name.SimpleName),
-            LiteralExpression lit => ParseLiteral(lit),
-            BetweenExpression between => EvaluateBetweenExpression(between, row),
-            InExpression inExpression => EvaluateInExpression(inExpression, row),
-            _ => throw new NotSupportedException($"Unsupported condition expression: {expr.GetType().Name}")
-        };
     }
 
     private bool EvaluateInExpression(
@@ -355,339 +351,85 @@ public class KustoDatabase
         throw new NotSupportedException($"Unsupported Between kind: {between.Kind}");
     }
 
-    private object? EvaluateBinary(BinaryExpression be, Dictionary<string, object?> row)
+    private static object? EvaluateBinary(BinaryExpression expression, Func<Expression, object?> evaluate)
     {
-        switch (be.Kind)
+        var left = evaluate(expression.Left);
+        if (expression.Kind == SyntaxKind.AndExpression && left is false) return false;
+        if (expression.Kind == SyntaxKind.OrExpression && left is true) return true;
+        var right = evaluate(expression.Right);
+        return expression.Kind switch
         {
-            case SyntaxKind.AndExpression:
-                return Convert.ToBoolean(EvaluateCondition(be.Left, row), CultureInfo.InvariantCulture) &&
-                       Convert.ToBoolean(EvaluateCondition(be.Right, row), CultureInfo.InvariantCulture);
-
-            case SyntaxKind.OrExpression:
-                return Convert.ToBoolean(EvaluateCondition(be.Left, row), CultureInfo.InvariantCulture) ||
-                       Convert.ToBoolean(EvaluateCondition(be.Right, row), CultureInfo.InvariantCulture);
-
-            case SyntaxKind.EqualExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return CompareUtils.AreEqual(left, right, StringComparison.Ordinal);
-            }
-
-            case SyntaxKind.EqualTildeExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase);
-            }
-
-            case SyntaxKind.NotEqualExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return !CompareUtils.AreEqual(left, right, StringComparison.Ordinal);
-            }
-
-            case SyntaxKind.BangTildeExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return !CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase);
-            }
-
-            case SyntaxKind.GreaterThanExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return CompareUtils.Compare(left, right) > 0;
-            }
-
-            case SyntaxKind.GreaterThanOrEqualExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return CompareUtils.Compare(left, right) >= 0;
-            }
-
-            case SyntaxKind.LessThanExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return CompareUtils.Compare(left, right) < 0;
-            }
-
-            case SyntaxKind.LessThanOrEqualExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return CompareUtils.Compare(left, right) <= 0;
-            }
-
-            case SyntaxKind.ContainsExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return StringOperations.ContainsOperation(left, right);
-            }
-
-            case SyntaxKind.NotContainsExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return !StringOperations.ContainsOperation(left, right);
-            }
-
-            case SyntaxKind.StartsWithExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return StringOperations.StartsWithOperation(left, right);
-            }
-
-            case SyntaxKind.NotStartsWithExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return !StringOperations.StartsWithOperation(left, right);
-            }
-
-            case SyntaxKind.EndsWithExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return StringOperations.EndsWithOperation(left, right);
-            }
-
-            case SyntaxKind.NotEndsWithExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return !StringOperations.EndsWithOperation(left, right);
-            }
-
-            case SyntaxKind.MatchesRegexExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-                return StringOperations.MatchesRegexExpressionOperation(left, right);
-            }
-
-            case SyntaxKind.SubtractExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-
-                if (left == null || right == null)
-                {
-                    return null;
-                }
-
-                if (left is DateTime leftDateTime1 && right is DateTime rightDateTime1)
-                {
-                    return leftDateTime1.Subtract(rightDateTime1);
-                }
-
-                if (left is DateTime leftDateTime2 && right is TimeSpan rightTimeSpan2)
-                {
-                    return leftDateTime2.Subtract(rightTimeSpan2);
-                }
-
-                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
-                {
-                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-                    return dl - dr;
-                }
-
-                throw new NotSupportedException(
-                    $"Unsupported SubtractExpression: left={left.GetType()}, right={right.GetType()}");
-            }
-
-            case SyntaxKind.AddExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-
-                if (left == null || right == null)
-                {
-                    return null;
-                }
-
-                if (left is DateTime && right is DateTime)
-                {
-                    // Not supported as of now
-                    throw new NotSupportedException("Unsupported AddExpression: left=DateTime, right=DateTime");
-                }
-
-                if (left is DateTime leftDateTime2 && right is TimeSpan rightTimeSpan2)
-                {
-                    return leftDateTime2.Add(rightTimeSpan2);
-                }
-
-                if (left is TimeSpan leftTimeSpan3 && right is TimeSpan rightTimeSpan3)
-                {
-                    return leftTimeSpan3.Add(rightTimeSpan3);
-                }
-
-                if (left is TimeSpan leftTimeSpan4 && right is DateTime rightDateTim4)
-                {
-                    return rightDateTim4.Add(leftTimeSpan4);
-                }
-
-                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
-                {
-                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-                    return dl + dr;
-                }
-
-                throw new NotSupportedException(
-                    $"Unsupported AddExpression: left={left.GetType()}, right={right.GetType()}");
-            }
-
-            case SyntaxKind.MultiplyExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-
-                if (left == null || right == null)
-                {
-                    return null;
-                }
-
-                if (left is TimeSpan leftTimeSpan1 && CompareUtils.IsNumeric(right))
-                {
-                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-                    return leftTimeSpan1.Multiply(dr);
-                }
-
-                if (CompareUtils.IsNumeric(left) && right is TimeSpan rightTimeSpan2)
-                {
-                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-                    return rightTimeSpan2.Multiply(dl);
-                }
-
-                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
-                {
-                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-                    return dl * dr;
-                }
-
-                throw new NotSupportedException(
-                    $"Unsupported MultiplyExpression: left={left.GetType()}, right={right.GetType()}");
-            }
-
-            case SyntaxKind.DivideExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-
-                if (left == null || right == null)
-                {
-                    return null;
-                }
-
-                if (left is TimeSpan leftTimeSpan1 && right is TimeSpan rightTimeSpan2)
-                {
-                    return leftTimeSpan1.Divide(rightTimeSpan2);
-                }
-
-                if (left is TimeSpan leftTimeSpan2 && CompareUtils.IsNumeric(right))
-                {
-                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-                    return leftTimeSpan2.Divide(dr);
-                }
-
-                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
-                {
-                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-                    if (dr == 0.0)
-                    {
-                        return null;
-                    }
-
-                    return dl / dr;
-                }
-
-                throw new NotSupportedException(
-                    $"Unsupported DivideExpression: left={left.GetType()}, right={right.GetType()}");
-            }
-
-            case SyntaxKind.ModuloExpression:
-            {
-                var left = EvalOperand(be.Left, row);
-                var right = EvalOperand(be.Right, row);
-
-                if (left == null || right == null)
-                {
-                    return null;
-                }
-
-                if (CompareUtils.IsNumeric(left) && CompareUtils.IsNumeric(right))
-                {
-                    var dl = Convert.ToDouble(left, CultureInfo.InvariantCulture);
-                    var dr = Convert.ToDouble(right, CultureInfo.InvariantCulture);
-                    return dl % dr;
-                }
-
-                throw new NotSupportedException($"Unsupported modulo expression for non numeric types: " +
-                                                $"{left.GetType()}, {right.GetType()}");
-            }
-
-            default:
-                throw new NotSupportedException($"Unsupported binary expression: {be.Kind}");
-        }
+            SyntaxKind.AndExpression => (bool?)left & (bool?)right,
+            SyntaxKind.OrExpression => (bool?)left | (bool?)right,
+            SyntaxKind.EqualExpression => CompareUtils.AreEqual(left, right, StringComparison.Ordinal),
+            SyntaxKind.EqualTildeExpression => CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase),
+            SyntaxKind.NotEqualExpression => !CompareUtils.AreEqual(left, right, StringComparison.Ordinal),
+            SyntaxKind.BangTildeExpression => !CompareUtils.AreEqual(left, right, StringComparison.OrdinalIgnoreCase),
+            SyntaxKind.ContainsExpression => StringOperations.ContainsOperation(left, right),
+            SyntaxKind.NotContainsExpression => !StringOperations.ContainsOperation(left, right),
+            SyntaxKind.StartsWithExpression => StringOperations.StartsWithOperation(left, right),
+            SyntaxKind.NotStartsWithExpression => !StringOperations.StartsWithOperation(left, right),
+            SyntaxKind.EndsWithExpression => StringOperations.EndsWithOperation(left, right),
+            SyntaxKind.NotEndsWithExpression => !StringOperations.EndsWithOperation(left, right),
+            SyntaxKind.MatchesRegexExpression => StringOperations.MatchesRegexExpressionOperation(left, right),
+            _ when left is null || right is null => null,
+            SyntaxKind.GreaterThanExpression => CompareUtils.Compare(left, right) > 0,
+            SyntaxKind.GreaterThanOrEqualExpression => CompareUtils.Compare(left, right) >= 0,
+            SyntaxKind.LessThanExpression => CompareUtils.Compare(left, right) < 0,
+            SyntaxKind.LessThanOrEqualExpression => CompareUtils.Compare(left, right) <= 0,
+            _ => ScalarMath.Arithmetic(expression, left, right)
+        };
     }
 
-    private object? EvalOperand(Expression expr, Dictionary<string, object?> row)
+    private object? EvalOperand(Expression expr, Dictionary<string, object?> row,
+        Func<FunctionCallExpression, object?>? aggregate = null)
     {
+        object? Evaluate(Expression child) => EvalOperand(child, row, aggregate);
         switch (expr)
         {
             case NameReference nr:
                 return GetPropValue(row, nr.Name.SimpleName);
-            case PrefixUnaryExpression pue:
-                object operand = EvalOperand(pue.Expression, row) ??
-                                 throw new ArgumentException($"operand is null for PrefixUnaryExpression: {pue.Kind}");
-                switch (pue.Operator.Kind)
+            case SimpleNamedExpression named:
+                return Evaluate(named.Expression);
+            case ParenthesizedExpression parens:
+                return Evaluate(parens.Expression);
+            case PrefixUnaryExpression unary:
+                var operand = Evaluate(unary.Expression);
+                return (unary.Operator.Kind, operand) switch
                 {
-                    case SyntaxKind.MinusToken:
-                        if (operand is int i) return -i;
-                        if (operand is long l) return -l;
-                        if (operand is double d) return -d;
-                        if (operand is float f) return -f;
-                        if (operand is TimeSpan ts) return -ts;
-                        throw new NotSupportedException($"Unary - not supported for {operand.GetType().Name}");
-
-                    case SyntaxKind.PlusToken: // +x
-                        return operand; // no-op
-
-                    case SyntaxKind.BangToken: // !x
-                        if (operand is bool b) return !b;
-                        throw new NotSupportedException($"Unary ! not supported for {operand.GetType().Name}");
-
-                    default:
-                        throw new NotSupportedException($"Unsupported prefix operator: {pue.Operator.Kind}");
-                }
+                    (_, null) => null,
+                    (SyntaxKind.PlusToken, _) => operand,
+                    (SyntaxKind.MinusToken, int i) => -i,
+                    (SyntaxKind.MinusToken, long l) => -l,
+                    (SyntaxKind.MinusToken, double d) => -d,
+                    (SyntaxKind.MinusToken, float f) => -f,
+                    (SyntaxKind.MinusToken, decimal d) => -d,
+                    (SyntaxKind.MinusToken, TimeSpan span) => -span,
+                    (SyntaxKind.BangToken, bool flag) => !flag,
+                    _ => throw new NotSupportedException($"Unsupported unary expression: {unary.Kind}")
+                };
             case LiteralExpression lit:
                 return ParseLiteral(lit);
-            case BinaryExpression be:
-                return EvaluateCondition(be, row); // only if nested boolean expression
-            case FunctionCallExpression fce:
-                return EvaluateFunction(fce, row);
+            case DynamicExpression dynamicLiteral:
+                return DynamicValues.Parse(dynamicLiteral.LiteralValue);
+            case BinaryExpression binary:
+                return EvaluateBinary(binary, Evaluate);
+            case BetweenExpression between:
+                return EvaluateBetweenExpression(between, row);
+            case InExpression membership:
+                return EvaluateInExpression(membership, row);
+            case FunctionCallExpression call when aggregate is not null && IsAggregate(call):
+                return aggregate(call);
+            case FunctionCallExpression call:
+                return EvaluateFunction(call, call.ArgumentList.Expressions.Select(e => Evaluate(e.Element)).ToArray());
             default:
                 throw new NotSupportedException($"Unsupported operand: {expr.GetType().Name}");
         }
     }
 
-    private object? EvaluateFunction(FunctionCallExpression fce, Dictionary<string, object?> row)
+    private static object? EvaluateFunction(FunctionCallExpression call, object?[] args)
     {
-        object?[] args = fce.ArgumentList.Expressions
-            .Select(expression => EvalOperand(expression.Element, row))
-            .ToArray();
-        string functionName = fce.Name.SimpleName;
-
+        string functionName = call.Name.SimpleName;
         return functionName switch
         {
             "base64_encode_tostring" => FunctionExpressions.Base64EncodeToString(args),
@@ -696,48 +438,44 @@ public class KustoDatabase
             "url_decode" => FunctionExpressions.UrlDecode(args),
             "toupper" => FunctionExpressions.ToUpper(args),
             "tolower" => FunctionExpressions.ToLower(args),
+            "strlen" when call.ResultType == Kusto.Language.Symbols.ScalarTypes.Long => (long)FunctionExpressions.StrLen(args),
             "strlen" => FunctionExpressions.StrLen(args),
             "todatetime" => FunctionExpressions.ToDateTime(args),
             "make_timespan" => FunctionExpressions.MakeTimeSpan(args),
             "totimespan" => FunctionExpressions.ToTimeSpan(args),
             "now" => FunctionExpressions.Now(args),
             "ago" => FunctionExpressions.Ago(args),
+            "bin" or "bin_at" => ScalarMath.Bin(args, call.ResultType),
+            "isnull" => args[0] is null,
+            "isnotnull" => args[0] is not null,
+            "not" => !(bool?)args[0],
+            "tostring" => DynamicValues.ToText(args[0]),
+            "toreal" or "todouble" => ScalarMath.ToReal(args[0]),
+            "pack_array" => args,
+            "parse_json" => DynamicValues.Parse(args[0]),
+            "bag_pack" => DynamicValues.Pack(args),
+            "dcount_hll" => args[0] is DistinctState state ? state.Count : null,
             _ => throw new NotSupportedException($"Function {functionName} not implemented.")
         };
     }
 
-    private static IEnumerable<Dictionary<string, object?>> ApplyProject(
+    private IEnumerable<Dictionary<string, object?>> ApplyProject(
         IEnumerable<Dictionary<string, object?>> source,
         ProjectOperator project)
     {
-        // unwrap SeparatedElement<Expression> → Expression
-        IEnumerable<Expression> exprs = project.Expressions.Select(se => se.Element);
-
-        // often NameReference, but can also be SimpleNamedExpression (alias = expr)
-        IEnumerable<(string Alias, NameReference Expr)> props = exprs.Select(e =>
+        var props = project.Expressions.Select(item => item.Element switch
         {
-            if (e is NameReference nr)
-            {
-                return (Alias: nr.Name.SimpleName, Expr: nr);
-            }
-
-            if (e is SimpleNamedExpression sne && sne.Expression is NameReference inner)
-            {
-                return (Alias: sne.Name.SimpleName, Expr: inner);
-            }
-
-            throw new NotSupportedException($"Unsupported project expression: {e.GetType().Name}");
-        });
+            NameReference name => (Alias: name.SimpleName, Expr: (Expression)name),
+            SimpleNamedExpression named => (Alias: named.Name.SimpleName, Expr: named.Expression),
+            _ => throw new NotSupportedException($"Unsupported project expression: {item.Element.Kind}")
+        }).ToArray();
 
         return source.Select(row =>
         {
             var dict = new Dictionary<string, object?>();
-            foreach ((string Alias, NameReference? Expr) p in props)
+            foreach (var (alias, expression) in props)
             {
-                if (p.Expr != null)
-                {
-                    dict[p.Alias] = GetPropValue(row, p.Expr.Name.SimpleName);
-                }
+                dict[alias] = EvalOperand(expression, row);
             }
 
             return dict;

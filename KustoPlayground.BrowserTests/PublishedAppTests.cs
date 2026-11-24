@@ -113,6 +113,17 @@ public class PublishedAppTests : PageTest
         await AssertQuery("Inventory | where Quantity > 0 | project Item", "Item=Pen");
     }
 
+    [Test]
+    public async Task SummarizePublishedTable()
+    {
+        await Page.GetByLabel("Option 2: CSV data as text:").FillAsync("City,Score\nOslo,2\nLima,5\nOslo,8");
+        await Page.GetByLabel("Table name:").FillAsync("Scores");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add Table" }).ClickAsync();
+        await Expect(Page.GetByText("CSV table \"Scores\" added successfully.")).ToBeVisibleAsync();
+        await AssertQuery("Scores | sort by Score asc | summarize Total=sum(Score), Values=make_list(Score) by City | sort by Total desc",
+            "City=Oslo, Total=10, Values=[2,8]", "City=Lima, Total=5, Values=[5]");
+    }
+
     private async Task AssertQuery(string query, params string[] expectedRows)
     {
         await Page.GetByRole(AriaRole.Textbox, new() { Name = "KQL query" }).FillAsync(query);

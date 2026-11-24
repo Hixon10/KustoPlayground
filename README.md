@@ -65,8 +65,22 @@ copy or personal deployment token is needed.
 - [where](https://learn.microsoft.com/en-us/kusto/query/where-operator)
 - [sort](https://learn.microsoft.com/en-us/kusto/query/sort-operator)
 - [count](https://learn.microsoft.com/en-us/kusto/query/count-operator)
+- [summarize](https://learn.microsoft.com/en-us/kusto/query/summarize-operator)
 - [distinct](https://learn.microsoft.com/en-us/kusto/query/distinct-operator)
 - [print](https://learn.microsoft.com/en-us/kusto/query/print-operator)
+
+`summarize` supports grouping, conditional aggregates, row selectors such as
+`arg_max`, collections, variance/covariance, and nearest-rank percentiles. For example:
+
+```kusto
+StormEvents
+| summarize Events=count(), Damage=sum(DamageProperty) by State, Day=bin(StartTime, 1d)
+| sort by Damage desc
+```
+
+Distinct counts and percentiles are computed exactly in memory. Shuffle hints do
+not change local execution. The local `hll` state can be merged and counted within
+a query; it is not an exchange format for Azure Data Explorer sketches.
 
 ## Supported Scalar operators:
 - [between](https://learn.microsoft.com/en-us/kusto/query/between-operator)
@@ -89,15 +103,14 @@ copy or personal deployment token is needed.
 - [toupper()](https://learn.microsoft.com/en-us/kusto/query/toupper-function)
 - [tolower()](https://learn.microsoft.com/en-us/kusto/query/tolower-function)
 - [strlen()](https://learn.microsoft.com/en-us/kusto/query/strlen-function)
+- [bin()](https://learn.microsoft.com/en-us/kusto/query/bin-function) and [bin_at()](https://learn.microsoft.com/en-us/kusto/query/bin-at-function)
 
 ## TODO
-- summarize operator (count(), dcount(), avg(), sum(), min(), max(), percentile(), percentiles())
-- bin()
 - strcat()
 - trim()
-- toint() / tolong() / toreal() / tostring() / tobool()
+- toint() / tolong() / tobool()
 - parse operator
-- parse_json() (maybe extract_json())
+- extract_json()
 - pack_all()
 - create a table from free form text
 - getschema operator

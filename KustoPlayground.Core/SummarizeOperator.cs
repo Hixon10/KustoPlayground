@@ -1,0 +1,109 @@
+using Kusto.Language;
+using Kusto.Language.Symbols;
+using Kusto.Language.Syntax;
+using QueryRow = System.Collections.Generic.Dictionary<string, object?>;
+
+namespace KustoPlayground.Core;
+
+public partial class KustoDatabase
+{
+    private static readonly GlobalState SummaryGlobals = CreateSummaryGlobals();
+
+    private static GlobalState CreateSummaryGlobals()
+    {
+        // The service accepts the documented count(column) form; it counts rows, not non-null values.
+        // The language package still declares the obsolete optional argument as bool.
+        var globals = GlobalState.Default;
+        var count = new FunctionSymbol("count", ScalarTypes.Long, new Parameter("value", ParameterTypeKind.Scalar, minOccurring: 0))
+            .WithResultNameKind(ResultNameKind.PrefixAndFirstArgument).WithResultNamePrefix("count");
+        return globals.WithAggregates(globals.Aggregates.Select(f => f.Name == "count" ? count : f).ToArray());
+    }
+
+    private KustoCode AnalyzeSummaries(KustoCode code)
+    {
+        var tables = _tables.Values.Select(t => new TableSymbol(t.Name, t.Schema.Values.Select(c =>
+            new ColumnSymbol(c.Name, ColumnType(c.GetColumnType())))));
+        return code.Analyze(SummaryGlobals.WithDatabase(new DatabaseSymbol("Playground", tables)));
+    }
+
+    private static ScalarSymbol ColumnType(Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        if (type == typeof(TimeSpan)) return ScalarTypes.TimeSpan;
+        if (type == typeof(Guid)) return ScalarTypes.Guid;
+        return Type.GetTypeCode(type) switch
+        {
+            TypeCode.Boolean => ScalarTypes.Bool,
+            TypeCode.Byte or TypeCode.SByte or TypeCode.Int16 or TypeCode.UInt16 or TypeCode.Int32 => ScalarTypes.Int,
+            TypeCode.UInt32 or TypeCode.Int64 or TypeCode.UInt64 => ScalarTypes.Long,
+            TypeCode.Double or TypeCode.Single => ScalarTypes.Real,
+            TypeCode.Decimal => ScalarTypes.Decimal,
+            TypeCode.DateTime => ScalarTypes.DateTime,
+            TypeCode.Char or TypeCode.String => ScalarTypes.String,
+            _ => ScalarTypes.Dynamic
+        };
+    }
+
+    private static bool IsAggregate(FunctionCallExpression call) =>
+        call.ReferencedSymbol is FunctionSymbol function && SummaryGlobals.IsAggregateFunction(function);
+
+    private static Expression UnwrapOutput(Expression expression) => expression switch
+    {
+        SimpleNamedExpression named => named.Expression,
+        CompoundNamedExpression tuple => tuple.Expression,
+        _ => expression
+    };
+
+    private IEnumerable<QueryRow> ApplySummarize(IEnumerable<QueryRow> source, SummarizeOperator op)
+    {
+        var keys = op.ByClause?.Expressions.Select(e => UnwrapOutput(e.Element)).ToArray() ?? [];
+        var outputs = op.Aggregates.Select(e => UnwrapOutput(e.Element)).ToArray();
+        if (keys.Length == 0 && outputs.Length == 0)
+            throw new ArgumentException("summarize requires at least one aggregation or group key.");
+
+        var columns = ((TableSymbol)op.ResultType).Columns;
+        var calls = op.Aggregates.GetDescendants<FunctionCallExpression>().Where(IsAggregate)
+            .ToDictionary(call => call, call => new AggregateCall(call, EvalArgument));
+        object? EvalArgument(Expression expr, QueryRow row) => EvalOperand(expr, row);
+
+        QueryRow Emit(object?[] key, IEnumerable<QueryRow> group)
+        {
+            var result = new QueryRow(columns.Count, StringComparer.Ordinal);
+            int position = 0;
+            void Append(object? value) => result.Add(columns[position++].Name, value);
+            foreach (var value in key) Append(value);
+            var rows = group as IReadOnlyList<QueryRow> ?? group.ToArray();
+            object? ScalarAggregate(FunctionCallExpression f) => calls[f].Evaluate(rows).Single();
+            foreach (var output in outputs)
+            {
+                if (output is FunctionCallExpression call && calls.TryGetValue(call, out var aggregate))
+                {
+                    foreach (var value in aggregate.Evaluate(rows)) Append(value);
+                }
+                else
+                {
+                    Append(EvalOperand(output, result, ScalarAggregate));
+                }
+            }
+            return result;
+        }
+
+        if (keys.Length == 0) return [Emit([], source)];
+        return source.GroupBy(row => Array.ConvertAll(keys, e => EvalOperand(e, row)), GroupKeyComparer.Instance)
+            .Select(g => Emit(g.Key, g));
+    }
+
+    private sealed class GroupKeyComparer : IEqualityComparer<object?[]>
+    {
+        internal static readonly GroupKeyComparer Instance = new();
+        public bool Equals(object?[]? x, object?[]? y) =>
+            ReferenceEquals(x, y) || (x is not null && y is not null && x.AsSpan().SequenceEqual(y));
+
+        public int GetHashCode(object?[] obj)
+        {
+            var hash = new HashCode();
+            foreach (var component in obj) hash.Add(component);
+            return hash.ToHashCode();
+        }
+    }
+}
