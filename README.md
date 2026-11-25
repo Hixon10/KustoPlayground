@@ -8,7 +8,7 @@ Run the same in-memory engine in the **Blazor WebAssembly playground** or the
 ## Features
 - Create an **in-memory Kusto database** directly in your browser from JSON, or CSV.
 - Write and run **KQL queries** interactively.
-- Draw a single-series line or time chart in the browser with [`render`](#charts).
+- Draw line and time charts with multiple measures and optional grouping using [`render`](#charts).
 - 100% client-side - no data leaves your machine.
 - Perfect for **learning, prototyping, and testing** queries quickly.
 
@@ -193,12 +193,19 @@ datatable(T:datetime, Hits:long)[datetime(2026-01-01),2, datetime(2026-01-02),5,
 | render timechart
 ```
 
-The web client draws one SVG line and keeps the query rows underneath. Project
-exactly two columns: numeric X (or UTC datetime X for a timechart), then
-numeric Y. Points follow query order; null or non-finite coordinates leave
-gaps. Grouping, dynamic arrays, other chart types, and `with (...)` options are
-not part of this preview. For binned time data, `summarize ... by bin(...)`
-produces the one-row-per-point shape; project the time column first.
+The first column is X: numeric for a line chart, UTC datetime for a time chart.
+Each remaining numeric column is a measure on the same Y axis. The first
+remaining string column, if present, groups each measure into one line per
+distinct value. Other columns remain in the result rows below the chart.
+The legend identifies each plotted series. Points follow query order within
+each group; null or non-finite coordinates break only the affected lines.
+
+Try the [grouped event timechart](samples/grouped-timechart.kql) for a complete
+`make-series` example. It expands the arrays to typed rows with `mv-expand` and
+projects `Timestamp, EventType, EventCount, Revenue`, drawing six lines:
+counts and revenue for views, purchases, and refunds. Alternatively, use
+`summarize ... by bin(...)` to produce rows directly. Unexpanded dynamic
+arrays, additional chart types, and `with (...)` options are not supported.
 The native CLI accepts the same queries and returns its usual JSON rows, not an image.
 
 ## Working with nested JSON

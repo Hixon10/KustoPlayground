@@ -9,32 +9,57 @@ public partial class QueryLineChart
 {
     [Parameter, EditorRequired] public ExecutionResult Result { get; set; } = null!;
 
-    private readonly List<(string X, string Y)> points = [];
-    private string? notice, description, line, xLow, xHigh, yLow, yHigh;
+    private static readonly string[] Colors = ["var(--cp-accent)", "var(--cp-link)", "var(--cp-success)", "var(--cp-text)"];
+    private static readonly string?[] Dashes = [null, "7 3", "2 3"];
+    private readonly List<ChartSeries> series = [];
+    private string? notice, description, xLow, xHigh, yLow, yHigh;
+    private bool showLegend;
+
+    private readonly record struct Sample(double X, double Y, bool Start);
+    private sealed record ChartSeries(string Label, string Color, string? Dash, string Path, List<(string X, string Y)> Points);
 
     protected override void OnParametersSet()
     {
-        points.Clear();
+        series.Clear();
         bool time = Result.Visualization == "timechart";
-        if (Result.Columns is not [var x, var y] || !(time ? x.Type == "datetime" : IsNumeric(x.Type)) || !IsNumeric(y.Type))
+        var columns = Result.Columns;
+        var measures = columns?.Skip(1).Where(c => IsNumeric(c.Type)).ToArray() ?? [];
+        if (columns is not [var x, ..] || !(time ? x.Type == "datetime" : IsNumeric(x.Type)) || measures.Length == 0)
         {
-            notice = $"To draw a {Result.Visualization}, project exactly two columns: " +
-                $"{(time ? "a datetime" : "a numeric")} X column followed by a numeric Y column. The query results are shown below.";
+            notice = $"To draw a {Result.Visualization}, project {(time ? "a datetime" : "a numeric")} X column first, " +
+                "followed by at least one numeric Y column. The query results are shown below.";
             return;
         }
 
-        var xs = new Axis(x.Type);
-        var ys = new Axis(y.Type);
-        var samples = new List<(int Row, double X, double Y)>();
+        var groupColumn = columns.Skip(1).FirstOrDefault(c => c.Type == "string");
+        var xs = new Axis(useReal: x.Type == "real");
+        var ys = new Axis(useReal: measures.Any(m => m.Type == "real"));
+        var pending = new List<(string Label, List<Sample> Samples)>();
         var rows = Result.ResultRows!;
-        for (int i = 0; i < rows.Count; i++)
+        foreach (var group in rows.GroupBy(row => groupColumn is null ? null : ExecutionResult.FormatValue(row[groupColumn.Name]),
+                     StringComparer.Ordinal))
         {
-            var xValue = rows[i][x.Name];
-            var yValue = rows[i][y.Name];
-            if (xValue is null || yValue is null || !IsFinite(xValue) || !IsFinite(yValue)) continue;
-            samples.Add((i, xs.Add(xValue), ys.Add(yValue)));
+            foreach (var measure in measures)
+            {
+                var samples = new List<Sample>();
+                bool start = true;
+                foreach (var row in group)
+                {
+                    var xValue = row[x.Name];
+                    var yValue = row[measure.Name];
+                    if (xValue is null || yValue is null || !IsFinite(xValue) || !IsFinite(yValue))
+                    {
+                        start = true;
+                        continue;
+                    }
+                    samples.Add(new Sample(xs.Add(xValue), ys.Add(yValue), start));
+                    start = false;
+                }
+                if (samples.Count > 0)
+                    pending.Add((groupColumn is null ? measure.Name : $"{measure.Name} ({groupColumn.Name}={group.Key})", samples));
+            }
         }
-        if (samples.Count == 0)
+        if (pending.Count == 0)
         {
             notice = rows.Count == 0 ? "No chart to draw: the query returned no rows." :
                 "No chart to draw: no row has a finite value on both axes.";
@@ -42,20 +67,27 @@ public partial class QueryLineChart
         }
 
         notice = null;
-        description = $"{Result.Visualization}: {y.Name} by {x.Name}";
+        description = $"{Result.Visualization}: {string.Join(", ", measures.Select(m => m.Name))} by {x.Name}";
+        if (groupColumn is not null) description += $", grouped by {groupColumn.Name}";
+        showLegend = groupColumn is not null || measures.Length > 1;
         (xLow, xHigh) = xs.Labels;
         (yLow, yHigh) = ys.Labels;
+        foreach (var (label, samples) in pending)
+            series.Add(ScaleSeries(label, samples, xs, ys, series.Count));
+    }
+
+    private static ChartSeries ScaleSeries(string label, List<Sample> samples, Axis xs, Axis ys, int index)
+    {
+        var points = new List<(string, string)>(samples.Count);
         var path = new StringBuilder();
-        int previous = -2;
         foreach (var sample in samples)
         {
             var px = (80 + 544 * xs.Fraction(sample.X)).ToString("0.###", CultureInfo.InvariantCulture);
             var py = (168 - 152 * ys.Fraction(sample.Y)).ToString("0.###", CultureInfo.InvariantCulture);
-            path.Append(sample.Row == previous + 1 ? 'L' : 'M').Append(px).Append(' ').Append(py);
+            path.Append(sample.Start ? 'M' : 'L').Append(px).Append(' ').Append(py);
             points.Add((px, py));
-            previous = sample.Row;
         }
-        line = path.ToString();
+        return new ChartSeries(label, Colors[index % Colors.Length], Dashes[index % Dashes.Length], path.ToString(), points);
     }
 
     private static bool IsNumeric(string type) => type is "int" or "long" or "real" or "decimal";
@@ -66,7 +98,7 @@ public partial class QueryLineChart
         _ => true
     };
 
-    private sealed class Axis(string type)
+    private sealed class Axis(bool useReal)
     {
         private double min = double.PositiveInfinity, max = double.NegativeInfinity;
         private object? low, high;
@@ -76,7 +108,7 @@ public partial class QueryLineChart
 
         internal double Add(object value)
         {
-            var n = type == "real" ? Convert.ToDouble(value, CultureInfo.InvariantCulture) : Offset(value);
+            var n = useReal ? Convert.ToDouble(value, CultureInfo.InvariantCulture) : Offset(value);
             if (n < min) { min = n; low = value; }
             if (n > max) { max = n; high = value; }
             return n;

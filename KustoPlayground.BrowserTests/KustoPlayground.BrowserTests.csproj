@@ -14,4 +14,7 @@
         <PackageReference Include="NUnit.Analyzers" PrivateAssets="all" />
         <PackageReference Include="NUnit3TestAdapter" PrivateAssets="all" />
     </ItemGroup>
+    <ItemGroup>
+        <None Include="..\samples\grouped-timechart.kql" Link="samples\grouped-timechart.kql" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
 </Project>

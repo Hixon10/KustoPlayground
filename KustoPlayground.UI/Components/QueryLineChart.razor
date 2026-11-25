@@ -14,11 +14,31 @@ else
                 <text x="80" y="192">@xLow</text>
                 <text x="624" y="192" text-anchor="end">@xHigh</text>
             </g>
-            <path class="series" d="@line" />
-            @foreach (var point in points)
+            @foreach (var s in series)
             {
-                <circle cx="@point.X" cy="@point.Y" r="3" />
+                <g aria-label="@s.Label" fill="@s.Color">
+                    <title>@s.Label</title>
+                    <path class="series" d="@s.Path" stroke="@s.Color" stroke-dasharray="@s.Dash" />
+                    @foreach (var point in s.Points)
+                    {
+                        <circle cx="@point.X" cy="@point.Y" r="3" />
+                    }
+                </g>
             }
         </svg>
+        @if (showLegend)
+        {
+            <ul class="legend" aria-label="Chart series">
+                @foreach (var s in series)
+                {
+                    <li>
+                        <svg viewBox="0 0 32 12" aria-hidden="true">
+                            <path class="series" d="M1 6 H31" stroke="@s.Color" stroke-dasharray="@s.Dash" />
+                        </svg>
+                        @s.Label
+                    </li>
+                }
+            </ul>
+        }
     </figure>
 }

@@ -213,6 +213,70 @@ public class PublishedAppTests : PageTest
     }
 
     [Test]
+    public async Task ExpandedDailyEventCountsAndRevenueArePlottedForEachEventType()
+    {
+        var query = await File.ReadAllTextAsync(Path.Combine(TestContext.CurrentContext.TestDirectory, "samples", "grouped-timechart.kql"));
+        await RunQuery(query);
+        await Expect(ResultRows).ToHaveCountAsync(18);
+        var (chart, _) = await ReadChart("timechart: EventCount, Revenue by Timestamp, grouped by EventType", 36);
+        var legend = Page.GetByRole(AriaRole.List, new() { Name = "Chart series" });
+        var expected = new Dictionary<string, int[]>
+        {
+            ["EventCount (EventType=view)"] = [1, 0, 1, 0, 0, 0],
+            ["Revenue (EventType=view)"] = [0, 0, 0, 0, 0, 0],
+            ["EventCount (EventType=purchase)"] = [1, 1, 1, 1, 1, 1],
+            ["Revenue (EventType=purchase)"] = [120, 85, 200, 150, 95, 175],
+            ["EventCount (EventType=refund)"] = [0, 1, 0, 0, 1, 0],
+            ["Revenue (EventType=refund)"] = [0, 20, 0, 0, 10, 0]
+        };
+        await Expect(legend.GetByRole(AriaRole.Listitem)).ToHaveCountAsync(expected.Count);
+        var positions = new Dictionary<string, double[][]>();
+        foreach (var label in expected.Keys)
+        {
+            await Expect(legend.GetByText(label, new() { Exact = true })).ToBeVisibleAsync();
+            var group = chart.Locator($"g[aria-label='{label}']");
+            var path = await group.Locator("path.series").GetAttributeAsync("d");
+            Assert.That(path!.Count(c => c == 'M'), Is.EqualTo(1), $"{label} must stay connected across interleaved rows.");
+            await Expect(group.Locator("circle")).ToHaveCountAsync(6);
+            positions.Add(label, await Coordinates(group.Locator("circle")));
+        }
+        var dates = positions["Revenue (EventType=view)"].Select(p => p[0]).ToArray();
+        Assert.That(dates.Distinct().Count(), Is.EqualTo(6));
+        Assert.That(dates, Is.Ordered);
+        double zero = positions["Revenue (EventType=view)"][0][1], peak = positions["Revenue (EventType=purchase)"][2][1];
+        Assert.That(peak, Is.LessThan(zero));
+        foreach (var (label, values) in expected)
+        {
+            Assert.That(positions[label].Select(p => p[0]), Is.EqualTo(dates), label);
+            Assert.That(positions[label].Select(p => p[1]),
+                Is.EqualTo(values.Select(v => zero + (peak - zero) * v / 200)).Within(0.01), label);
+        }
+    }
+
+    [Test]
+    public async Task MissingMeasuresBreakOnlyTheirOwnLine()
+    {
+        await RunQuery("""
+            datatable(X:int, A:long, Team:string, B:real, Note:string)[
+                0, 10, 'east', 0.0, 'first',         0, 0, 'west', 10.0, 'first',
+                1, long(null), 'east', 5.0, 'next',  1, 1, 'west', real(nan), 'next',
+                2, 12, 'east', 10.0, 'last',         2, 2, 'west', 30.0, 'last']
+            | render linechart
+            """);
+        var (chart, _) = await ReadChart("linechart: A, B by X, grouped by Team", 10);
+        foreach (var (label, segments) in new[] { ("A (Team=east)", 2), ("B (Team=east)", 1), ("A (Team=west)", 1), ("B (Team=west)", 2) })
+        {
+            var path = await chart.Locator($"g[aria-label='{label}'] path.series").GetAttributeAsync("d");
+            Assert.That(path!.Count(c => c == 'M'), Is.EqualTo(segments), label);
+        }
+
+        await AssertQuery("print X=0, Low=1, High=5 | render linechart", "X=0, Low=1, High=5");
+        await ReadChart("linechart: Low, High by X", 2);
+        await Expect(Page.GetByRole(AriaRole.List, new() { Name = "Chart series" }).GetByRole(AriaRole.Listitem))
+            .ToHaveTextAsync(["Low", "High"]);
+    }
+
+    [Test]
     public async Task SummarizePublishedTable()
     {
         await Page.GetByLabel("Option 2: CSV data as text:").FillAsync("City,Score\nOslo,2\nLima,5\nOslo,8");
@@ -244,15 +308,24 @@ public class PublishedAppTests : PageTest
         await Expect(chart).ToBeVisibleAsync();
         var points = chart.Locator("circle");
         await Expect(points).ToHaveCountAsync(count);
-        return (chart, await points.EvaluateAllAsync<double[][]>("dots => dots.map(p => [p.cx.baseVal.value, p.cy.baseVal.value])"));
+        return (chart, await Coordinates(points));
+    }
+
+    private static Task<double[][]> Coordinates(ILocator points) =>
+        points.EvaluateAllAsync<double[][]>("dots => dots.map(p => [p.cx.baseVal.value, p.cy.baseVal.value])");
+
+    private ILocator ResultRows => Page.GetByRole(AriaRole.List, new() { Name = "Query results" }).GetByRole(AriaRole.Listitem);
+
+    private async Task RunQuery(string query)
+    {
+        await Page.GetByRole(AriaRole.Textbox, new() { Name = "KQL query" }).FillAsync(query);
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Process Kusto Query" }).ClickAsync();
     }
 
     private async Task AssertQuery(string query, params string[] expectedRows)
     {
-        await Page.GetByRole(AriaRole.Textbox, new() { Name = "KQL query" }).FillAsync(query);
-        await Page.GetByRole(AriaRole.Button, new() { Name = "Process Kusto Query" }).ClickAsync();
-        var rows = Page.GetByRole(AriaRole.List, new() { Name = "Query results" }).GetByRole(AriaRole.Listitem);
-        await Expect(rows).ToHaveTextAsync(expectedRows);
+        await RunQuery(query);
+        await Expect(ResultRows).ToHaveTextAsync(expectedRows);
         await Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "Errors" })).ToHaveCountAsync(0);
     }
 }

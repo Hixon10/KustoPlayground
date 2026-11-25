@@ -1,0 +1,32 @@
+let Events = datatable(
+    Timestamp:datetime,
+    EventType:string,
+    Amount:real
+)
+[
+    datetime(2026-01-01 09:00:00), "view", 0.0,
+    datetime(2026-01-01 10:00:00), "purchase", 120.0,
+    datetime(2026-01-02 09:30:00), "purchase", 85.0,
+    datetime(2026-01-02 12:00:00), "refund", 20.0,
+    datetime(2026-01-03 14:00:00), "purchase", 200.0,
+    datetime(2026-01-03 15:00:00), "view", 0.0,
+    datetime(2026-01-04 08:00:00), "purchase", 150.0,
+    datetime(2026-01-05 16:00:00), "purchase", 95.0,
+    datetime(2026-01-05 17:00:00), "refund", 10.0,
+    datetime(2026-01-06 13:00:00), "purchase", 175.0
+];
+Events
+| make-series
+    EventCount=count(),
+    Revenue=sum(Amount)
+    default=0
+    on Timestamp
+    from datetime(2026-01-01) to datetime(2026-01-07) step 1d
+    by EventType
+| mv-expand
+    Timestamp to typeof(datetime),
+    EventCount to typeof(long),
+    Revenue to typeof(real)
+| project Timestamp, EventType, EventCount, Revenue
+| order by Timestamp asc
+| render timechart
