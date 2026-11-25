@@ -9,7 +9,7 @@ internal static partial class DynamicCollections
     internal static IEqualityComparer<object?> Comparer { get; } = new DynamicComparer();
 
     internal static bool Supports(string name) => name is
-        "array_length" or "arraylength" or "array_slice" or "array_concat" or "array_index_of"
+        "array_length" or "arraylength" or "array_slice" or "array_concat" or "array_index_of" or "series_fill_linear"
         or "array_reverse" or "array_sort_asc" or "array_sort_desc" or "array_sum" or "array_iff" or "array_iif"
         or "set_union" or "set_intersect" or "set_difference" or "set_has_element"
         or "bag_pack" or "pack" or "pack_array" or "pack_all" or "bag_keys" or "bag_has_key" or "bag_merge" or "bag_set_key";
@@ -28,6 +28,7 @@ internal static partial class DynamicCollections
             "set_has_element" or "bag_has_key" => (2, 2),
             "array_slice" or "array_iff" or "array_iif" or "bag_set_key" => (3, 3),
             "array_index_of" => (2, 5),
+            "series_fill_linear" => (1, 4),
             "array_concat" or "array_sort_asc" or "array_sort_desc" or "pack_array" => (1, int.MaxValue),
             _ => (2, int.MaxValue)
         };
@@ -45,6 +46,7 @@ internal static partial class DynamicCollections
             "array_reverse" => AsArray(args[0])?.Reverse().ToArray(),
             "array_sort_asc" or "array_sort_desc" => Sort(args, name == "array_sort_desc"),
             "array_sum" => Sum(args[0]),
+            "series_fill_linear" => FillLinear(args),
             "array_iff" or "array_iif" => Choose(args),
             "set_union" or "set_intersect" or "set_difference" => Set(name, args),
             "set_has_element" => HasElement(args[0], args[1]),

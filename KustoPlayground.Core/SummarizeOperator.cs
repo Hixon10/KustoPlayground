@@ -59,7 +59,8 @@ internal sealed partial class QueryEvaluator
         var tables = _tables.Values.Select(t => new TableSymbol(t.Name, t.Schema.Values.Select(c =>
             new ColumnSymbol(c.Name, ColumnType(c.GetColumnType())))));
         var bound = NormalizeJoinConditions(code).Analyze(QueryGlobals.WithDatabase(new DatabaseSymbol("Playground", tables)));
-        return bound.Syntax.GetFirstDescendant<UnionOperator>() is not null ? BindViewUnions(bound) : bound;
+        if (bound.Syntax.GetFirstDescendant<UnionOperator>() is not null) bound = BindViewUnions(bound);
+        return BindSeriesNames(bound);
     }
 
     private static ScalarSymbol ColumnType(Type type)

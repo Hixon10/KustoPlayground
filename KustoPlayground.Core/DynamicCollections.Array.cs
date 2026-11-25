@@ -114,6 +114,53 @@ internal static partial class DynamicCollections
         return total;
     }
 
+    private static object?[]? FillLinear(object?[] args)
+    {
+        if (AsArray(args[0]) is not { } source) return null;
+        var placeholder = args.Length > 1 ? args[1] : null;
+        bool fillEdges = args.Length < 3 || args[2] is true;
+        var result = (object?[])source.Clone();
+        bool Replace(object? value) => value is null ? placeholder is null : Matches(value, placeholder);
+        bool integral = true;
+        foreach (var value in source)
+        {
+            if (value is null || Replace(value)) continue;
+            if (!CompareUtils.IsNumeric(value)) return null;
+            if (value is float or double or decimal) integral = false;
+        }
+
+        void Fill(int start, int end, object? value)
+        {
+            for (int i = start; i < end; i++)
+                if (Replace(source[i])) result[i] = value;
+        }
+
+        int left = -1;
+        for (int right = 0; right < source.Length; right++)
+        {
+            if (source[right] is null || Replace(source[right])) continue;
+            if (!integral) result[right] = Convert.ToDouble(source[right], CultureInfo.InvariantCulture);
+            if (left < 0 && fillEdges) Fill(0, right, result[right]);
+            else if (left >= 0 && right > left + 1)
+            {
+                decimal x = integral ? Convert.ToInt64(source[left], CultureInfo.InvariantCulture) : 0;
+                decimal y = integral ? Convert.ToInt64(source[right], CultureInfo.InvariantCulture) : 0;
+                double a = Convert.ToDouble(source[left], CultureInfo.InvariantCulture);
+                double b = Convert.ToDouble(source[right], CultureInfo.InvariantCulture);
+                for (int i = left + 1; i < right; i++)
+                {
+                    if (source[i] is null && placeholder is not null) continue;
+                    result[i] = integral ? (object)(long)(x + (y - x) * (i - left) / (right - left)) :
+                        a + (b - a) * ((i - left) / (double)(right - left));
+                }
+            }
+            left = right;
+        }
+        if (left < 0) Fill(0, source.Length, args.Length > 3 ? args[3] : 0d);
+        else if (fillEdges) Fill(left + 1, source.Length, result[left]);
+        return result;
+    }
+
     private static object?[]? Choose(object?[] args)
     {
         if (AsArray(args[0]) is not { } conditions) return null;

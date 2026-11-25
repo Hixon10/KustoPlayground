@@ -39,8 +39,9 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
 
     private static bool IsServiceCompatible(KustoCode code, Diagnostic diagnostic)
     {
-        if (diagnostic.Code is not ("KS005" or "KS180" or "KS141" or "KS147" or "KS234" or "KS235") || !diagnostic.HasLocation) return false;
+        if (diagnostic.Code is not ("KS005" or "KS180" or "KS141" or "KS178" or "KS147" or "KS234" or "KS235") || !diagnostic.HasLocation) return false;
         var node = code.Syntax.GetNodeAt(diagnostic.Start, diagnostic.Length);
+        if (diagnostic.Code is "KS141" or "KS178" && IsIntegralSeriesBound(node, diagnostic)) return true;
         if (diagnostic.Code == "KS005")
             return node is LiteralExpression { Kind: SyntaxKind.TokenLiteralExpression,
                 Parent: NamedParameter { Name.SimpleName: "kind", Parent.Parent: ParseOperator } };
@@ -128,6 +129,9 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
 
             case SummarizeOperator summarize:
                 return ApplySummarize(source, summarize);
+
+            case MakeSeriesOperator series:
+                return ApplyMakeSeries(source, series);
 
             case ParseOperator parse:
                 var pattern = new ParsePattern(parse);

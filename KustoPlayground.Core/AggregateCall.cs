@@ -108,6 +108,7 @@ internal sealed class AggregateCall
         foreach (var value in values)
         {
             if (value is "") continue;
+            if (value is double.NaN or float.NaN) return value;
             if (best is null || (maximum ? Compare(value, best) > 0 : Compare(value, best) < 0)) best = value;
         }
         return best ?? EmptyValue(_args[0].ResultType);

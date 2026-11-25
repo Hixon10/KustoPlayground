@@ -21,6 +21,7 @@ internal sealed partial class QueryEvaluator
                     "Cannot compare two dynamic values without an explicit cast.",
                 InExpression membership when membership.Right.Expressions.Any(e => e.Element.ResultType is not TableSymbol && !e.Element.IsConstant) =>
                     "The scalar values on the right of in must be constants, not row columns.",
+                MakeSeriesOperator series => ValidateSeries(series),
                 FunctionCallExpression { ReferencedSymbol: FunctionSymbol f } call
                     when QueryGlobals.IsBuiltInFunction(f) || QueryGlobals.IsAggregateFunction(f) => ValidateCall(call),
                 _ => null
@@ -58,6 +59,10 @@ internal sealed partial class QueryEvaluator
     // Validate constant values in their lexical scope (including let aliases), before enumerating rows.
     private void ValidateConstantArguments(Expression expression)
     {
+        var declaration = expression.GetFirstAncestor<FunctionDeclaration>();
+        foreach (var series in expression.GetDescendantsOrSelf<MakeSeriesOperator>(s =>
+            s.GetFirstAncestor<FunctionDeclaration>() == declaration))
+            _ = GetSeriesBounds(series);
         foreach (var call in expression.GetDescendantsOrSelf<FunctionCallExpression>(f =>
             (f.Name.SimpleName is "bin_at" or "array_index_of") && f.ReferencedSymbol is FunctionSymbol fn && QueryGlobals.IsBuiltInFunction(fn)))
         {

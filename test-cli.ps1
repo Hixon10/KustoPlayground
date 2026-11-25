@@ -28,7 +28,13 @@ try {
             $result.results.items[0].City -cne 'string' -or $result.results.items[1][0] -cne 'Lima') {
             throw 'CSV query did not return City:string = Lima.'
         }
-        Write-Output 'Native CLI smoke passed: help, JSON expansion/aggregation, and CSV filtering.'
+
+        $series = & $exe -e --query 'datatable(X:real,V:long)[0.0,2, 1.0,7] | make-series S=sum(V) on X from 0.0 to 1.5 step 0.5' | ConvertFrom-Json -AsHashtable
+        if ($series.status -ne 200 -or $series.results.items.Count -ne 2 -or
+            ($series.results.items[1][0] -join ',') -cne '2,0,7' -or ($series.results.items[1][1] -join ',') -cne '0,0.5,1') {
+            throw 'make-series did not produce the expected real axis and gap-filled sums.'
+        }
+        Write-Output 'Native CLI smoke passed: help, JSON expansion/aggregation, CSV filtering, and make-series.'
     } finally { Pop-Location }
 } finally {
     if (Test-Path -LiteralPath $exe) { Remove-Item -LiteralPath $exe }

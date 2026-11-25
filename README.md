@@ -86,7 +86,8 @@ pwsh -File test-cli.ps1 -Binary ./artifacts/native/kustoplayground
 
 Use `-r win-x64` and `kustoplayground.exe` on Windows, or `-r osx-arm64` on
 Apple Silicon. CI builds each target on its native runner. The smoke test copies
-only the executable into an empty directory and checks help and two query results.
+only the executable into an empty directory and checks help, JSON and CSV queries,
+and a gap-filled series.
 
 ## Deployment
 
@@ -123,6 +124,7 @@ copy or personal deployment token is needed.
 - [top](https://learn.microsoft.com/en-us/kusto/query/top-operator)
 - [count](https://learn.microsoft.com/en-us/kusto/query/count-operator)
 - [summarize](https://learn.microsoft.com/en-us/kusto/query/summarize-operator)
+- [make-series](https://learn.microsoft.com/en-us/kusto/query/make-series-operator) (numeric, datetime, and timespan axes)
 - [distinct](https://learn.microsoft.com/en-us/kusto/query/distinct-operator)
 - [join](https://learn.microsoft.com/en-us/kusto/query/join-operator) (inner, innerunique, outer, semi and anti joins)
 - [print](https://learn.microsoft.com/en-us/kusto/query/print-operator)
@@ -143,6 +145,22 @@ StormEvents
 Distinct counts and percentiles are computed exactly in memory. Shuffle hints do
 not change local execution. The local `hll` state can be merged and counted within
 a query; it is not an exchange format for Azure Data Explorer sketches.
+
+`make-series` returns the grouping keys, one dynamic array per measure, and the
+aligned axis array. For example, this produces `Total=[5,0,7,0]` and
+`Hour=[0,1,2,3]`:
+
+```kusto
+datatable(Hour:int, Units:long)[0,2, 0,3, 2,7]
+| make-series Total=sum(Units) on Hour from 0 to 4 step 1
+```
+
+Use `by` to build separate series, or omit bounds to infer them per group.
+In `from ... to ... step`, a bin starts before the explicit stop but can
+contain later events; the alternate `in range(start, stop, step)` includes
+the stop bin. Use a typed null default and `series_fill_linear()` for
+interpolation, or `mv-expand` to turn the arrays back into rows. Each
+series is limited to 1,048,576 bins.
 
 `bin(value, width)` accepts negative widths for numbers and timespans; for
 example, `bin(25, -10)` returns `30`. A numeric width for a datetime is in

@@ -162,6 +162,16 @@ public class PublishedAppTests : PageTest
     }
 
     [Test]
+    public async Task MakeSeriesFillsGapsInPublishedWasm()
+    {
+        await AssertQuery("""
+            datatable(Hour:int, Units:long)[0,2, 0,3, 2,7]
+            | make-series Units=sum(Units) default=long(null) on Hour from 0 to 4 step 1
+            | project Bins=Hour, Totals=Units
+            """, "Bins=[0,1,2,3], Totals=[5,null,7,null]");
+    }
+
+    [Test]
     public async Task SummarizePublishedTable()
     {
         await Page.GetByLabel("Option 2: CSV data as text:").FillAsync("City,Score\nOslo,2\nLima,5\nOslo,8");
