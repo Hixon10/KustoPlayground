@@ -149,3 +149,56 @@ jobs:
       - name: Deploy the tested site
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  release-cli:
+    name: Publish CLI to GitHub Releases
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [native-smoke, publish-cli, deploy]
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download the tested CLI archives without extracting them
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: kustoplayground-*
+          path: release
+          merge-multiple: true
+          skip-decompress: true
+
+      - name: Publish all three archives together
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINUX_HASH: ${{ needs.native-smoke.outputs['linux-x64'] }}
+          WINDOWS_HASH: ${{ needs.native-smoke.outputs['win-x64'] }}
+          MACOS_HASH: ${{ needs.native-smoke.outputs['osx-arm64'] }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets=(kustoplayground-linux-x64.tar.gz kustoplayground-win-x64.zip kustoplayground-osx-arm64.tar.gz)
+          hashes=("$LINUX_HASH" "$WINDOWS_HASH" "$MACOS_HASH")
+          for i in "${!assets[@]}"; do
+            printf '%s  %s\n' "${hashes[i]}" "${assets[i]}" | sha256sum --check --strict
+          done
+
+          tag="cli-build-$GITHUB_RUN_NUMBER"
+          title="Kusto Playground CLI build $GITHUB_RUN_NUMBER"
+          notes="Native AOT binaries for Linux x64, Windows x64, and macOS ARM64. No .NET installation is required. [Test results]($GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID)."
+          if release=$(gh release view "$tag" --json isDraft,assets); then
+            if jq -e '.isDraft' <<<"$release" >/dev/null; then
+              # A prior attempt may have stopped halfway through uploading a draft.
+              gh release upload "$tag" "${assets[@]}" --clobber
+              gh release edit "$tag" --draft=false --latest
+            else
+              # A rerun must not replace a published tag or its assets.
+              for i in "${!assets[@]}"; do
+                jq -e --arg name "${assets[i]}" --arg digest "sha256:${hashes[i],,}" \
+                  'any(.assets[]; .name == $name and .digest == $digest)' <<<"$release" >/dev/null
+              done
+            fi
+          else
+            gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA" --title "$title" --notes "$notes" --latest
+          fi

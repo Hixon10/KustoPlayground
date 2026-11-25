@@ -33,8 +33,11 @@ public class CommandTests
         var (exit, output, error) = Run(command);
         Assert.That(exit, Is.Zero);
         Assert.That(error, Is.Empty);
-        Assert.That(output, Does.Contain("--query").And.Contain("--json").And.Contain("--csv").And.Contain("Input"));
+        Assert.That(output, Does.Contain("--query").And.Contain("--json-file").And.Contain("--csv-file").And.Contain("Input"));
     }
+
+    [Test]
+    public void NoArgumentsBehaveExactlyLikeHelp() => Assert.That(Run(), Is.EqualTo(Run("--help")));
 
     [TestCase("-e")]
     [TestCase("--execute")]
@@ -90,6 +93,33 @@ public class CommandTests
         Assert.That(items[1][1].GetString()!.ReplaceLineEndings("\n"), Is.EqualTo("a\"b\nc"));
     }
 
+    [TestCase("--json-file", """{"Name":"Scores","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":3}]}""", "Scores")]
+    [TestCase("--csv-file", "N\r\n3", "Input")]
+    public void FileInputsProduceTheSameTypedResultAsInlineInputs(string option, string data, string table)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"cli input {Guid.NewGuid():N}");
+        try
+        {
+            File.WriteAllText(path, data, Encoding.UTF8);
+            var query = $"{table} | project Twice=N*2";
+            var file = Items("-e", option, path, "--query", query);
+            Assert.That(file.GetRawText(), Is.EqualTo(Items("-e", "--query", query, option[..^5], data).GetRawText()));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestCase("--json-file")]
+    [TestCase("--csv-file")]
+    public void MissingFileIsAnInputError(string option)
+    {
+        var name = Guid.NewGuid().ToString("N");
+        var (exit, output, error) = Run("-e", option, Path.Combine(Path.GetTempPath(), name), "--query", "print 1");
+        Assert.That(exit, Is.EqualTo(2));
+        Assert.That(output, Is.Empty);
+        using var document = JsonDocument.Parse(error);
+        Assert.That(document.RootElement.GetProperty("message").GetString(), Does.Contain(name));
+    }
+
     [TestCase(new[] { "-e" }, "--query")]
     [TestCase(new[] { "-e", "--query", " " }, "--query")]
     [TestCase(new[] { "--help", "--execute" }, "--help")]
@@ -97,6 +127,13 @@ public class CommandTests
     [TestCase(new[] { "-e", "--query", "print 1", "--query", "print 2" }, "Duplicate")]
     [TestCase(new[] { "-e", "--query", "--csv", "x" }, "--query")]
     [TestCase(new[] { "-e", "--json", "{}", "--csv", "N\n2", "--query", "print 1" }, "mutually exclusive")]
+    [TestCase(new[] { "-e", "--json-file", "j", "--json", "{}", "--query", "print 1" }, "mutually exclusive")]
+    [TestCase(new[] { "-e", "--json-file", "j", "--csv", "N\n2", "--query", "print 1" }, "mutually exclusive")]
+    [TestCase(new[] { "-e", "--csv-file", "c", "--json", "{}", "--query", "print 1" }, "mutually exclusive")]
+    [TestCase(new[] { "-e", "--csv-file", "c", "--csv", "N\n2", "--query", "print 1" }, "mutually exclusive")]
+    [TestCase(new[] { "-e", "--csv-file", "c", "--json-file", "j", "--query", "print 1" }, "mutually exclusive")]
+    [TestCase(new[] { "-e", "--csv-file", "c", "--csv-file", "d", "--query", "print 1" }, "Duplicate")]
+    [TestCase(new[] { "-e", "--json-file", "--query", "print 1" }, "Missing value for --json-file")]
     [TestCase(new[] { "-e", "--json", "{", "--query", "print 1" }, "Invalid table")]
     [TestCase(new[] { "-e", "--csv", "x,y\n1", "--query", "print 1" }, "fields")]
     [TestCase(new[] { "-e", "--csv", "x,x\n1,2", "--query", "print 1" }, "column names")]

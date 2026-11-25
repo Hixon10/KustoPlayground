@@ -13,7 +13,7 @@ Run the same in-memory engine in the **Blazor WebAssembly playground** or the
 
 ## Native CLI
 
-Download the archive for your platform from a successful [.NET CI run](https://github.com/Hixon10/KustoPlayground/actions/workflows/dotnet.yml):
+Download the archive for your platform from the [latest GitHub Release](https://github.com/Hixon10/KustoPlayground/releases/latest):
 `kustoplayground-linux-x64.tar.gz`, `kustoplayground-win-x64.zip`, or
 `kustoplayground-osx-arm64.tar.gz` (Apple Silicon). Extract it and run
 `./kustoplayground` (on Windows, `.\kustoplayground.exe`). Each contains one
@@ -27,11 +27,16 @@ The Linux binary targets glibc Linux (built on Ubuntu 24.04), not Alpine/musl.
 ./kustoplayground -execute --csv 'City,Score
 Oslo,3
 Lima,9' --query 'Input | where Score > 5 | project City'
+./kustoplayground -e --csv-file 'data/city scores.csv' --query 'Input | where Score > 5'
+./kustoplayground -e --json-file scores.json --query 'Scores | count'
 ```
 
-`-h`, `--help`, and `-help` print usage. Execution requires `--query`. Supply
-at most one input **as inline text**: JSON uses the same table definition as the
-browser; CSV has a header, supports quoted fields, and creates a table named
+`kustoplayground` with no arguments, `-h`, `--help`, and `-help` all print the
+same usage and exit successfully. Execution requires `--query`. Choose **at most
+one** of `--json`, `--csv` (inline text), `--json-file`, or `--csv-file`
+(a local path, absolute or relative to your current directory). File inputs use
+the same formats as inline inputs: JSON uses the browser's table definition;
+CSV has a header, supports quoted fields, and creates a table named
 `Input`. Each invocation starts a fresh database. Omit the input for queries
 such as `print` or `datatable`. The CLI supports the same KQL operators as the engine.
 
@@ -97,7 +102,10 @@ smoke tests** pass. It transfers the exact tested archives between jobs and
 checks their SHA-256 hashes before upload. On a push to `main`, the deploy job
 then publishes the browser-tested `github-pages` artifact to
 [Kusto Playground](https://hixon10.github.io/KustoPlayground/) without rebuilding
-it. Pull requests run the checks but cannot deploy.
+it. After deployment, every successful push to `main` publishes those exact
+CLI archives together in a new GitHub Release, tagged `cli-build-<run number>`.
+The repository's **Releases → Latest** link always points to the newest published
+build. Pull requests run the checks but cannot deploy or create releases.
 
 The repository's **Settings > Pages > Build and deployment > Source** must be
 **GitHub Actions**. The published site is not checked into Git. No manual file

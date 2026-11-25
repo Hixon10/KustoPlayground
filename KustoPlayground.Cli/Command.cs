@@ -10,13 +10,14 @@ internal static class Command
     private const string Help = """
         Run KQL locally using the Kusto Playground engine.
 
-        kustoplayground --help
-        kustoplayground --execute --query <KQL> [--json <table JSON> | --csv <CSV text>]
+        kustoplayground [--help]
+        kustoplayground --execute --query <KQL> [--json <table JSON> | --csv <CSV text> | --json-file <path> | --csv-file <path>]
 
         Help: -h, --help, -help         Execute: -e, --execute, -execute
-        Pass each value as one argument. JSON uses the playground's Name, Columns,
+        Pass each value as one argument. File paths may be relative or absolute.
+        Choose at most one input. JSON uses the playground's Name, Columns,
         and Rows format. CSV needs a header and data; its table is named Input.
-        Omit both inputs for print, datatable, or other self-contained queries.
+        Omit the input for print, datatable, or other self-contained queries.
 
         Example: kustoplayground -e --query "print Answer=6*7"
         Success: JSON on stdout (schema, then rows in results.items; duration in ms).
@@ -25,44 +26,56 @@ internal static class Command
 
     internal static int Run(string[] args, Stream output, Stream error)
     {
-        if (args is ["-h" or "--help" or "-help"])
+        if (args is [] or ["-h" or "--help" or "-help"])
         {
             output.Write(Encoding.UTF8.GetBytes(Help + Environment.NewLine));
             return 0;
         }
 
         var start = Stopwatch.GetTimestamp();
-        string? query = null, json = null, csv = null;
+        string? query = null;
+        (string Option, string Value)? input = null;
         int Fail(string message, int exitCode = 2)
         {
             JsonOutput.WriteError(error, message, start);
             return exitCode;
         }
 
-        if (args.Length == 0 || args[0] is not ("-e" or "--execute" or "-execute"))
+        if (args[0] is not ("-e" or "--execute" or "-execute"))
             return Fail("Expected an execute command or --help.");
+        static bool IsOption(string value) => value is "--query" or "--json" or "--csv" or "--json-file" or "--csv-file";
         for (int i = 1; i < args.Length; i++)
         {
             string option = args[i];
-            if (option is not ("--query" or "--json" or "--csv")) return Fail($"Unknown option: {option}.");
-            if (++i == args.Length || args[i] is "--query" or "--json" or "--csv" || string.IsNullOrWhiteSpace(args[i]))
+            if (!IsOption(option)) return Fail($"Unknown option: {option}.");
+            if (++i == args.Length || IsOption(args[i]) || string.IsNullOrWhiteSpace(args[i]))
                 return Fail($"Missing value for {option}.");
-            switch (option)
+            if (option == "--query")
             {
-                case "--query" when query is null: query = args[i]; break;
-                case "--json" when json is null: json = args[i]; break;
-                case "--csv" when csv is null: csv = args[i]; break;
-                default: return Fail($"Duplicate option: {option}.");
+                if (query is not null) return Fail($"Duplicate option: {option}.");
+                query = args[i];
+            }
+            else
+            {
+                if (input is { } prior)
+                    return Fail(prior.Option == option ? $"Duplicate option: {option}." : $"{prior.Option} and {option} are mutually exclusive.");
+                input = (option, args[i]);
             }
         }
         if (query is null) return Fail("--query is required.");
-        if (json is not null && csv is not null) return Fail("--json and --csv are mutually exclusive.");
 
         var database = new KustoDatabase();
         try
         {
-            if (json is not null) database.AddTable(InputTable.FromJson(json));
-            if (csv is not null) database.AddTable(InputTable.FromCsv(csv));
+            if (input is { } source)
+            {
+                var data = source.Option is "--json-file" or "--csv-file" ? File.ReadAllText(source.Value) : source.Value;
+                database.AddTable(source.Option is "--json" or "--json-file" ? InputTable.FromJson(data) : InputTable.FromCsv(data));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return Fail($"Cannot read input file: {ex.Message}");
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or JsonException or KeyNotFoundException or NotSupportedException or OverflowException)
         {
