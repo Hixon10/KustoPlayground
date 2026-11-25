@@ -28,16 +28,22 @@ public class NullableBinArithmeticAndDateTimeNeonTests
     [TestCase("print bin(int(null), int(null))")]
     [TestCase("print bin(datetime(null), timespan(null))")]
     [TestCase("print bin(25, 0)")]
-    [TestCase("print bin(25, -10)")]
-    [TestCase("print bin(25.5, -2.5)")]
     [TestCase("print bin(datetime(2024-06-15 10:35:00), 0s)")]
     [TestCase("print bin(datetime(2024-06-15 10:35:00), -1h)")]
     [TestCase("print bin(1h, 0s)")]
-    [TestCase("print bin(1h, -5m)")]
-    [Description("bin() returns null when the value is null, bin size is null, or bin size is zero/negative")]
+    [Description("bin() returns null when the value is null, bin size is null, bin size is zero, or a datetime value is binned by a negative size")]
     public void Bin_NullOrNonPositiveArguments_ReturnsNull(string query)
     {
         AssertPrintNull(query);
+    }
+
+    [Test]
+    [Description("bin() with a negative bin size on numeric and timespan values is not null: it returns floor(value / size) * size")]
+    public void Bin_NegativeSizeOnNumericAndTimeSpan_ReturnsFlooredMultipleOfSize()
+    {
+        Assert.That(ExecutePrintSingleValue("print bin(25, -10)"), Is.EqualTo(30L).And.TypeOf<long>());
+        Assert.That(ExecutePrintSingleValue("print bin(25.5, -2.5)"), Is.EqualTo(27.5).And.TypeOf<double>());
+        Assert.That(ExecutePrintSingleValue("print bin(1h, -5m)"), Is.EqualTo(TimeSpan.FromHours(1)));
     }
 
     [Test]
@@ -86,7 +92,7 @@ public class NullableBinArithmeticAndDateTimeNeonTests
     }
 
     [Test]
-    [Description("bin() with a dynamic nullable bin-size column returns null for rows with null or non-positive sizes")]
+    [Description("bin() with a dynamic nullable bin-size column returns null for rows with null or zero sizes, and floors by a negative size")]
     public void Bin_WithNullableBinSizeColumn()
     {
         var table = new NullableTableBuilder("DynamicBins")
@@ -107,7 +113,7 @@ public class NullableBinArithmeticAndDateTimeNeonTests
         Assert.That(AsNullableLong(byId[1]["Bucket"]), Is.EqualTo(20L));
         Assert.That(byId[2]["Bucket"], Is.Null);
         Assert.That(byId[3]["Bucket"], Is.Null);
-        Assert.That(byId[4]["Bucket"], Is.Null);
+        Assert.That(AsNullableLong(byId[4]["Bucket"]), Is.EqualTo(30L));
         Assert.That(byId[5]["Bucket"], Is.Null);
     }
 
@@ -116,23 +122,29 @@ public class NullableBinArithmeticAndDateTimeNeonTests
     #region bin_at() with null values, null sizes, null anchors, and non-positive sizes
 
     [TestCase("print bin_at(int(null), 10, 5)")]
+    [TestCase("print bin_at(datetime(null), 1d, datetime(2024-01-01 12:00:00))")]
+    [TestCase("print bin_at(timespan(null), 1h, 15m)")]
+    [Description("bin_at() returns null if the value to bin is null")]
+    public void BinAt_NullValue_ReturnsNull(string query)
+    {
+        AssertPrintNull(query);
+    }
+
     [TestCase("print bin_at(15, int(null), 5)")]
     [TestCase("print bin_at(15, 10, int(null))")]
     [TestCase("print bin_at(int(null), int(null), int(null))")]
     [TestCase("print bin_at(15, 0, 5)")]
     [TestCase("print bin_at(15, -10, 5)")]
-    [TestCase("print bin_at(datetime(null), 1d, datetime(2024-01-01 12:00:00))")]
     [TestCase("print bin_at(datetime(2024-01-02 06:00:00), timespan(null), datetime(2024-01-01 12:00:00))")]
     [TestCase("print bin_at(datetime(2024-01-02 06:00:00), 1d, datetime(null))")]
     [TestCase("print bin_at(datetime(2024-01-02 06:00:00), 0s, datetime(2024-01-01 12:00:00))")]
     [TestCase("print bin_at(datetime(2024-01-02 06:00:00), -1d, datetime(2024-01-01 12:00:00))")]
-    [TestCase("print bin_at(timespan(null), 1h, 15m)")]
     [TestCase("print bin_at(2h, timespan(null), 15m)")]
     [TestCase("print bin_at(2h, 1h, timespan(null))")]
-    [Description("bin_at() returns null if value, bin size, or fixed point is null, or if bin size is non-positive")]
-    public void BinAt_NullOrNonPositiveArguments_ReturnsNull(string query)
+    [Description("bin_at() rejects (SEM0031) a bin size that is null, zero, or negative and a fixed point that is null: both must be valid constants")]
+    public void BinAt_NullOrNonPositiveBinSizeOrNullFixedPoint_IsRejected(string query)
     {
-        AssertPrintNull(query);
+        NeonTestUtils.ExecuteAndExpectError(CreateDatabase(), query);
     }
 
     [Test]

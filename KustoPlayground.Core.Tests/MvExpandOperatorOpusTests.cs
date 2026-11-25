@@ -14,7 +14,7 @@ namespace KustoPlayground.Core.Tests;
 /// <item>with_itemindex=i adds a 0-based long index of the element (0 for null and scalars);</item>
 /// <item>limit N expands at most N elements of every input row (limit 0 produces no rows);</item>
 /// <item><c>to typeof(T)</c> only casts the elements and never parses strings: 1.5 to long is 1, '7' to long is null,
-/// a long to bool is true and a real to bool is null;</item>
+/// a long to bool is true, a real to bool is null and a long to timespan is that many ticks;</item>
 /// <item>kind=bag (the default, the legacy syntax is bagexpansion=bag) expands a property bag into single-property bags,
 /// kind=array expands it into [key, value] arrays;</item>
 /// <item>several expressions are expanded in parallel: the elements are aligned by index and the shorter ones are padded
@@ -318,8 +318,8 @@ public class MvExpandOperatorOpusTests
     }
 
     [Test]
-    [Description("mv-expand to typeof(timespan / guid / int) - only values of a compatible type are converted, "
-                 + "the strings '01:00:00' and a guid text are not parsed")]
+    [Description("mv-expand to typeof(timespan / guid / int) - only values of a compatible type are converted "
+                 + "(a long becomes a timespan of that many ticks), the strings '01:00:00' and a guid text are not parsed")]
     public void MvExpand_ToTypeofTimespanGuidAndInt_ConvertsOnlyCompatibleValues()
     {
         var kustoDatabase = CreateTypedDatabase();
@@ -330,7 +330,7 @@ public class MvExpandOperatorOpusTests
         Assert.That(rows, Has.Count.EqualTo(11));
         AssertTypedValues<long>(GroupById(rows, "i")[1], 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         AssertTypedValues<TimeSpan>(GroupById(rows, "ts")[1],
-            null, TimeSpan.FromHours(1), null, null, null, null, null, null, null, null, null);
+            null, TimeSpan.FromHours(1), null, null, TimeSpan.FromTicks(2), null, null, null, null, null, null);
         AssertTypedValues<Guid>(GroupById(rows, "g")[1],
             null, null, SampleGuid, null, null, null, null, null, null, null, null);
         AssertTypedValues<int>(GroupById(rows, "n")[1],

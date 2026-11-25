@@ -37,6 +37,8 @@ internal static class ScalarFunctions
 
         if (args.Length != 1) throw new ArgumentException($"{name} requires exactly one argument.");
         if (name == "tostring") return ArgumentText(call, 0, args[0]);
+        if (name == "toint" && args[0] is string text && call.ArgumentList.Expressions[0].Element.ResultType is DynamicSymbol)
+            return ToInteger<long>(text) is long integer ? unchecked((int)integer) : null;
         var type = name switch
         {
             "toint" => ScalarTypes.Int,

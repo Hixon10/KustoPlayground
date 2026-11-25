@@ -336,14 +336,18 @@ public class NeonParseJsonExtractJsonPackAllTests
     }
 
     [Test]
-    [Description("extract_json() - accepts dynamic input directly as well as string input")]
+    [Description("extract_json() - dynamic input is rejected (the data source must be a string expression); a dynamic value has to be converted with tostring()")]
     public void ExtractJson_DynamicDataSource()
     {
         var db = new KustoDatabase();
 
+        NeonTestUtils.ExecuteAndExpectError(
+            db,
+            """print d = parse_json('{"count":77}') | extend c = extract_json("$.count", d, typeof(int)) | project c""");
+
         var actual = NeonTestUtils.ExecuteAndGetSingleValue<int>(
             db,
-            """print d = parse_json('{"count":77}') | extend c = extract_json("$.count", d, typeof(int)) | project c""",
+            """print d = parse_json('{"count":77}') | extend c = extract_json("$.count", tostring(d), typeof(int)) | project c""",
             "c");
 
         Assert.That(actual, Is.EqualTo(77));

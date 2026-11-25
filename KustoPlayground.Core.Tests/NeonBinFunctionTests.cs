@@ -337,15 +337,17 @@ public class NeonBinFunctionTests
     }
 
     [Test]
-    [Description("bin() - negative or zero bin size returns null, except a real zero yields NaN")]
-    public void Bin_NonpositiveWidth_ReturnsNullExceptRealZero()
+    [Description("bin() - zero bin size returns null, except a real zero yields NaN; a negative bin size returns null only for datetime, numbers and timespans are floored as floor(value / size) * size")]
+    public void Bin_ZeroWidthReturnsNullExceptRealZero_NegativeWidthFloorsExceptDatetime()
     {
         var db = new KustoDatabase();
 
-        Assert.That(NeonTestUtils.ExecuteAndGetSingleObject(db, "print bin(10, -5)"), Is.Null);
-        Assert.That(NeonTestUtils.ExecuteAndGetSingleObject(db, "print bin(4.5, -1.0)"), Is.Null);
+        NeonTestUtils.AssertNumericEqual(NeonTestUtils.ExecuteAndGetSingleObject(db, "print bin(10, -5)"), 10L);
+        NeonTestUtils.AssertNumericEqual(NeonTestUtils.ExecuteAndGetSingleObject(db, "print bin(4.5, -1.0)"), 5.0);
         Assert.That(NeonTestUtils.ExecuteAndGetSingleObject(db, "print bin(datetime(2024-01-01 12:30:00), -1h)"), Is.Null);
-        Assert.That(NeonTestUtils.ExecuteAndGetSingleObject(db, "print bin(time(16d), -7d)"), Is.Null);
+        Assert.That(
+            NeonTestUtils.ExecuteAndGetSingleValue<TimeSpan>(db, "print bin(time(16d), -7d)"),
+            Is.EqualTo(TimeSpan.FromDays(21)));
 
         Assert.That(NeonTestUtils.ExecuteAndGetSingleObject(db, "print bin(10, 0)"), Is.Null);
         Assert.That(NeonTestUtils.ExecuteAndGetSingleValue<double>(db, "print bin(4.5, 0.0)"), Is.NaN);
@@ -468,7 +470,7 @@ public class NeonBinFunctionTests
     }
 
     [Test]
-    [Description("bin() - invalid arity and incompatible types return execution errors")]
+    [Description("bin() - invalid arity and a string value return execution errors, while a numeric bin size for a datetime is accepted (as seconds)")]
     public void Bin_InvalidArguments_ReturnsError()
     {
         var db = new KustoDatabase();
@@ -477,6 +479,8 @@ public class NeonBinFunctionTests
         NeonTestUtils.ExecuteAndExpectError(db, "print bin(10)");
         NeonTestUtils.ExecuteAndExpectError(db, "print bin(10, 5, 1)");
         NeonTestUtils.ExecuteAndExpectError(db, "print bin('not_a_number', 5)");
-        NeonTestUtils.ExecuteAndExpectError(db, "print bin(datetime(2024-01-01), 5)");
+        Assert.That(
+            NeonTestUtils.ExecuteAndGetSingleValue<DateTime>(db, "print bin(datetime(2024-01-01), 5)"),
+            Is.EqualTo(new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
     }
 }

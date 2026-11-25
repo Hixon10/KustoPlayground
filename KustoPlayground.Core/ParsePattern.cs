@@ -17,7 +17,6 @@ internal sealed class ParsePattern
         string? Parameter(string name) =>
             op.Parameters.FirstOrDefault(p => p.Name.SimpleName == name)?.Expression.LiteralValue as string;
         var kind = Parameter("kind") ?? "simple";
-        if (kind is not ("simple" or "relaxed" or "regex")) throw new ArgumentException($"Unknown parse kind: {kind}");
         _relaxed = kind == "relaxed";
         bool regex = kind == "regex";
         var flags = Parameter("flags") ?? string.Empty;

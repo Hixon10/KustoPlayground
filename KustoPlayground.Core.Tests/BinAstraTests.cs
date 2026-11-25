@@ -31,6 +31,7 @@ public class BinAstraTests
     [TestCase("bin(-0.125, 0.25)", -0.25)]
     [TestCase("bin(-0.5, 0.25)", -0.5)]
     [TestCase("bin(0.875, 0.25)", 0.75)]
+    [TestCase("bin(-8.5, -2.0)", -8.0)]
     public void Bin_RealOrMixedOperands(string expression, double expected)
     {
         Assert.That(AstraTestUtils.Print<double>(expression), Is.EqualTo(expected));
@@ -39,14 +40,18 @@ public class BinAstraTests
     [TestCase("bin(long(null), 5)")]
     [TestCase("bin(42, long(null))")]
     [TestCase("bin(42, 0)")]
-    [TestCase("bin(-8.5, -2.0)")]
     [TestCase("bin(datetime(null), 1d)")]
     [TestCase("bin(datetime(2024-02-29), 0s)")]
     [TestCase("bin(15s, timespan(null))")]
-    [TestCase("bin(15s, -1s)")]
-    public void Bin_NullOperandOrNonpositiveWidthReturnsNull(string expression)
+    public void Bin_NullOperandOrZeroWidthReturnsNull(string expression)
     {
         Assert.That(AstraTestUtils.Print<object?>(expression), Is.Null);
+    }
+
+    [Test]
+    public void Bin_NegativeTimespanWidthFloorsInsteadOfReturningNull()
+    {
+        Assert.That(AstraTestUtils.Print<TimeSpan>("bin(15s, -1s)"), Is.EqualTo(TimeSpan.FromSeconds(15)));
     }
 
     [Test]
@@ -57,11 +62,12 @@ public class BinAstraTests
     }
 
     [Test]
-    public void Bin_DatetimeNeedsATimespanWidth()
+    public void Bin_DatetimeAcceptsATimespanOrANumericWidth()
     {
         Assert.That(AstraTestUtils.Print<DateTime>("bin(datetime(2024-02-29T23:59:59Z), 1d)"),
             Is.EqualTo(new DateTime(2024, 2, 29, 0, 0, 0, DateTimeKind.Utc)));
-        AstraTestUtils.AssertRejected(new KustoDatabase(), "print Value = bin(datetime(2024-02-29), 1)");
+        Assert.That(AstraTestUtils.Print<DateTime>("bin(datetime(2024-02-29), 1)"),
+            Is.EqualTo(new DateTime(2024, 2, 29, 0, 0, 0, DateTimeKind.Utc)));
     }
 
     [Test]

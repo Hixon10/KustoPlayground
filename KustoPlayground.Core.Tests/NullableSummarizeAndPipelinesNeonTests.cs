@@ -263,7 +263,7 @@ public class NullableSummarizeAndPipelinesNeonTests
     }
 
     [Test]
-    [Description("binary_all_and/or/xor ignore nulls within mixed groups and return 0 on all-null groups")]
+    [Description("binary_all_and/or/xor ignore nulls within mixed groups and return null on all-null groups")]
     public void Summarize_BinaryAllBitwise_AllNullAndMixedGroups()
     {
         var table = CreateNullableTable2<string?, long?>(
@@ -282,9 +282,9 @@ public class NullableSummarizeAndPipelinesNeonTests
         Assert.That(AsNullableLong(byGrp["mixed"]["BOr"]), Is.EqualTo(0b1110L));
         Assert.That(AsNullableLong(byGrp["mixed"]["BXor"]), Is.EqualTo(0b0110L));
 
-        Assert.That(AsNullableLong(byGrp["allnull"]["BAnd"]), Is.EqualTo(0L));
-        Assert.That(AsNullableLong(byGrp["allnull"]["BOr"]), Is.EqualTo(0L));
-        Assert.That(AsNullableLong(byGrp["allnull"]["BXor"]), Is.EqualTo(0L));
+        Assert.That(byGrp["allnull"]["BAnd"], Is.Null);
+        Assert.That(byGrp["allnull"]["BOr"], Is.Null);
+        Assert.That(byGrp["allnull"]["BXor"], Is.Null);
     }
 
     [Test]

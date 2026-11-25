@@ -162,11 +162,12 @@ public partial class SummarizeAstraTests
     }
 
     [Test]
-    public void NegativeBinSizeProducesOneNullKeyNotAnEmptyResult()
+    public void NegativeBinSizeRoundsKeysUpInsteadOfProducingNull()
     {
+        // Kusto computes bin(v, -5) as floor(v / -5) * -5, which rounds each value up to a multiple of 5.
         var actual = TestUtils.ExecuteAndGetDataFor2Columns<long?, long>("Bucket", "N", Numbers(0, 3, 8),
             "T | summarize N=count() by Bucket=bin(Value, -5)");
-        Assert.That(actual, Is.EqualTo(new (long?, long)[] { (null, 3) }));
+        Assert.That(actual, Is.EquivalentTo(new (long?, long)[] { (0, 1), (5, 1), (10, 1) }));
     }
 
     [Test]

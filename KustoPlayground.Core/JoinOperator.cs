@@ -9,6 +9,7 @@ namespace KustoPlayground.Core;
 internal sealed partial class QueryEvaluator
 {
     private enum JoinFlavor { InnerUnique, Inner, LeftOuter, RightOuter, FullOuter, LeftSemi, RightSemi, LeftAnti, RightAnti }
+    private static readonly object NegativeZeroKey = new();
 
     private sealed class JoinBucket
     {
@@ -180,6 +181,9 @@ internal sealed partial class QueryEvaluator
                 null when column.ResultType == ScalarTypes.String => string.Empty,
                 // Explicit equality keys allow int on one side and long on the other.
                 byte or sbyte or short or ushort or int or uint or ulong => ScalarFunctions.ConvertTo(value, ScalarTypes.Long),
+                // Real hash-join keys distinguish the sign bit of zero; scalar equality does not.
+                double d when d == 0 && double.IsNegative(d) => NegativeZeroKey,
+                float f when f == 0 && float.IsNegative(f) => NegativeZeroKey,
                 float number => (double)number,
                 char character => character.ToString(),
                 _ => value

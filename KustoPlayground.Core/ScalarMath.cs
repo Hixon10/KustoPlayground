@@ -39,7 +39,6 @@ internal static class ScalarMath
         if (!CompareUtils.IsNumeric(left) || !CompareUtils.IsNumeric(right))
             throw new NotSupportedException($"Unsupported {op}: {left.GetType().Name}, {right.GetType().Name}");
 
-        // Bound expressions preserve Kusto integer/decimal precision. Unbound legacy queries used real arithmetic.
         if (expr.ResultType == ScalarTypes.Long) return Calculate(op, Convert.ToInt64(left, Culture), Convert.ToInt64(right, Culture));
         if (expr.ResultType == ScalarTypes.Int) return Calculate(op, Convert.ToInt32(left, Culture), Convert.ToInt32(right, Culture));
         if (expr.ResultType == ScalarTypes.Decimal) return Calculate(op, Convert.ToDecimal(left, Culture), Convert.ToDecimal(right, Culture));
@@ -80,23 +79,23 @@ internal static class ScalarMath
     internal static object? Bin(object?[] args, TypeSymbol? resultType)
     {
         if (args.Length is not (2 or 3)) throw new ArgumentException("Expected a value, a bin size, and optionally an anchor.");
-        if (Array.Exists(args, v => v is null)) return null;
-        var input = args[0]!;
-        var width = args[1]!;
         var anchor = args.Length == 3 ? args[2] : null;
-        if (width is TimeSpan duration)
+        if (args[0] is not { } input || args[1] is not { } width) return null;
+        if (input is DateTime or TimeSpan)
         {
-            if (duration <= TimeSpan.Zero) return null;
-            if (input is DateTime dt && anchor is null or DateTime)
+            // A numeric width for a time value is in seconds; work in ticks to keep exact boundaries.
+            decimal ticksPerBin = width is TimeSpan duration ? duration.Ticks :
+                CompareUtils.IsNumeric(width) ? decimal.Truncate(Convert.ToDecimal(width, Culture) * TimeSpan.TicksPerSecond) :
+                throw new ArgumentException("Expected a timespan or a numeric bin size in seconds.");
+            if (ticksPerBin == 0) return null;
+            if (input is DateTime dt)
             {
-                var ticks = FloorBin(dt.Ticks, duration.Ticks, (anchor as DateTime?)?.Ticks ?? 0);
+                if (ticksPerBin < 0) return null;
+                var ticks = FloorBin(dt.Ticks, ticksPerBin, ((DateTime?)anchor)?.Ticks ?? 0);
                 return ticks >= 0 && ticks <= DateTime.MaxValue.Ticks ? new DateTime((long)ticks, dt.Kind) : null;
             }
-            if (input is TimeSpan ts && anchor is null or TimeSpan)
-            {
-                var ticks = FloorBin(ts.Ticks, duration.Ticks, (anchor as TimeSpan?)?.Ticks ?? 0);
-                return ticks >= long.MinValue ? TimeSpan.FromTicks((long)ticks) : null;
-            }
+            var elapsed = FloorBin(((TimeSpan)input).Ticks, ticksPerBin, ((TimeSpan?)anchor)?.Ticks ?? 0);
+            return elapsed is >= long.MinValue and <= long.MaxValue ? TimeSpan.FromTicks((long)elapsed) : null;
         }
         if (!CompareUtils.IsNumeric(input) || !CompareUtils.IsNumeric(width) || (anchor is not null && !CompareUtils.IsNumeric(anchor)))
             throw new ArgumentException("Expected numeric operands, or a datetime or timespan with a timespan bin size.");
@@ -106,10 +105,10 @@ internal static class ScalarMath
             var size = Convert.ToDouble(width, Culture);
             if (size == 0 && args.Length == 2) return double.NaN;
             var start = Convert.ToDouble(anchor, Culture);
-            return size > 0 ? start + size * Math.Floor((Convert.ToDouble(input, Culture) - start) / size) : null;
+            return start + size * Math.Floor((Convert.ToDouble(input, Culture) - start) / size);
         }
         var step = Convert.ToDecimal(width, Culture);
-        if (step <= 0) return null;
+        if (step == 0) return null;
         try
         {
             var value = FloorBin(Convert.ToDecimal(input, Culture), step, Convert.ToDecimal(anchor, Culture));
@@ -126,6 +125,13 @@ internal static class ScalarMath
     {
         // A remainder avoids rounding a nearly integral quotient up to the next bin.
         var remainder = (value - anchor) % size;
-        return value - (remainder < 0 ? remainder + size : remainder);
+        return value - (remainder != 0 && Math.Sign(remainder) != Math.Sign(size) ? remainder + size : remainder);
     }
+
+    internal static bool IsPositiveBinSize(object? size) => size switch
+    {
+        TimeSpan span => span.Ticks > 0,
+        not null when CompareUtils.IsNumeric(size) => Convert.ToDouble(size, Culture) > 0,
+        _ => false
+    };
 }

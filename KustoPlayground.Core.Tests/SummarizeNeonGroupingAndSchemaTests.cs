@@ -626,8 +626,8 @@ public class SummarizeNeonGroupingAndSchemaTests
     }
 
     [Test]
-    [Description("Summarize - bin() with negative bin size yields null for all rows and collapses them into one null group")]
-    public void Summarize_ByBin_NegativeBinSize_ReturnsNull()
+    [Description("Summarize - bin() with negative bin size is not null: Kusto computes floor(value / size) * size, so 1, 10, 25 fall into bins 5, 10, 25")]
+    public void Summarize_ByBin_NegativeBinSize_FloorsByNegativeSize()
     {
         var kustoDatabase = new KustoDatabase();
         Table table = TestUtils.GenerateTableWithColumn(
@@ -636,12 +636,17 @@ public class SummarizeNeonGroupingAndSchemaTests
             columnName: "Val");
         kustoDatabase.AddTable(table);
 
-        var row = SummarizeNeonTestUtils.ExecuteAndGetSingleRow(
+        var rows = SummarizeNeonTestUtils.ExecuteAndAssertSuccess(
             kustoDatabase,
             "table1 | summarize count() by bin(Val, -5)");
 
-        Assert.That(row["Val"], Is.Null);
-        Assert.That(row["count_"], Is.EqualTo(3L));
+        var actual = rows.Select(r => (SummarizeNeonTestUtils.AsLong(r["Val"]), (long)r["count_"]!)).ToList();
+        Assert.That(actual, Is.EquivalentTo(new List<(long, long)>
+        {
+            (5L, 1L),  // floor(1 / -5) * -5 = -1 * -5
+            (10L, 1L), // floor(10 / -5) * -5 = -2 * -5
+            (25L, 1L)  // floor(25 / -5) * -5 = -5 * -5
+        }));
     }
 
     [Test]

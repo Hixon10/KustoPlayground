@@ -30,7 +30,7 @@ internal static partial class DynamicCollections
         long? start = args.Length > 2 ? Integer(args[2]) : 0;
         long? length = args.Length > 3 ? Integer(args[3]) : -1;
         long? occurrence = args.Length > 4 ? Integer(args[4]) : 1;
-        if (start is null || length is null or < -1 || occurrence is null or < 1) return null;
+        if (start is null || length is null or < -1 || occurrence is null) return null;
         long first = start.Value < 0 ? Math.Max(0, source.LongLength + start.Value) : start.Value;
         if (first >= source.Length) return -1;
         long count = length == -1 ? source.Length - first : Math.Min(source.Length - first, length.Value);
@@ -108,7 +108,7 @@ internal static partial class DynamicCollections
         foreach (var item in source)
         {
             var number = Unwrap(item);
-            if (number is not null && CompareUtils.IsNumeric(number))
+            if (number is not null && (number is bool || CompareUtils.IsNumeric(number)))
                 total = (total ?? 0) + Convert.ToDouble(number, CultureInfo.InvariantCulture);
         }
         return total;

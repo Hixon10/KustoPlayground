@@ -433,7 +433,7 @@ public class JoinNeonKeysTypesNullsAndErrorsTests
     }
 
     [Test]
-    [Description("Real key edge cases: -0.0 matches +0.0, NaN matches NaN (not null), +Infinity matches +Infinity (not -Infinity); decimal 1.0m matches 1.00m.")]
+    [Description("Real key edge cases: -0.0 does not match +0.0 (even though -0.0 == 0.0 is true), NaN matches NaN (not null), +Infinity matches +Infinity (not -Infinity); decimal 1.0m matches 1.00m.")]
     public void RealAndDecimalKeyEdgeCases_SignedZeroNaNInfinityAndTrailingScale()
     {
         KustoDatabase db = CreateDatabase(
@@ -463,7 +463,7 @@ public class JoinNeonKeysTypesNullsAndErrorsTests
                 .Build());
 
         var realPairs = ExecuteAndGetNullable2Columns<int, int>("LId", "RId", db, "RealL | join kind=inner RealR on K");
-        Assert.That(realPairs, Is.EquivalentTo(new[] { (1, 10), (2, 20), (3, 30), (4, 40), (5, 50) }));
+        Assert.That(realPairs, Is.EquivalentTo(new[] { (2, 20), (3, 30), (4, 40), (5, 50) }));
 
         var decPairs = ExecuteAndGetNullable2Columns<int, int>("LId", "RId", db, "DecL | join kind=inner DecR on K");
         Assert.That(decPairs, Is.EquivalentTo(new[] { (1, 10), (2, 20), (3, 30) }));
@@ -860,7 +860,6 @@ public class JoinNeonKeysTypesNullsAndErrorsTests
     [TestCase("L | join kind=inner R on $left.Id == $right.Id or $left.Key == $right.Key")]
     [TestCase("L | join kind=inner R on tolower($left.Key) == tolower($right.Key)")]
     [TestCase("L | join kind=inner R on $left.Id + 1 == $right.Id")]
-    [TestCase("L | join kind=inner kind=leftouter R on Id")]
     [TestCase("L | join kind=inner R on $left['Key'] == $right['Key']")]
     [Description("Malformed join syntax, unsupported kinds, missing or invalid columns, non-equality predicates, and expressions in on return execution errors.")]
     public void InvalidJoinQueries_ReturnExecutionError(string query)
@@ -880,6 +879,37 @@ public class JoinNeonKeysTypesNullsAndErrorsTests
                 .Build());
 
         AssertJoinError(db, query);
+    }
+
+    [Test]
+    [Description("A repeated kind= parameter is accepted and the first one is used: kind=inner kind=leftouter is an inner join that drops the unmatched left row.")]
+    public void RepeatedKindParameter_IsAcceptedAndTheFirstKindIsUsed()
+    {
+        KustoDatabase db = CreateDatabase(
+            new NullableTableBuilder("L")
+                .WithColumn<int>("Id", false)
+                .WithColumn<string>("Key", false)
+                .WithColumn<string>("OnlyOnLeft", false)
+                .WithRow(1, "a", "x")
+                .WithRow(2, "b", "z")
+                .Build(),
+            new NullableTableBuilder("R")
+                .WithColumn<int>("Id", false)
+                .WithColumn<string>("Key", false)
+                .WithColumn<string>("OnlyOnRight", false)
+                .WithRow(1, "a", "y")
+                .Build());
+
+        var rows = ExecuteJoin(db, "L | join kind=inner kind=leftouter R on Id");
+
+        Assert.That(rows, Has.Count.EqualTo(1));
+        AssertExactColumnOrder(rows, "Id", "Key", "OnlyOnLeft", "Id1", "Key1", "OnlyOnRight");
+        Assert.That(ReadCell<int>(rows[0], "Id"), Is.EqualTo(1));
+        Assert.That(ReadCell<string>(rows[0], "Key"), Is.EqualTo("a"));
+        Assert.That(ReadCell<string>(rows[0], "OnlyOnLeft"), Is.EqualTo("x"));
+        Assert.That(ReadCell<int>(rows[0], "Id1"), Is.EqualTo(1));
+        Assert.That(ReadCell<string>(rows[0], "Key1"), Is.EqualTo("a"));
+        Assert.That(ReadCell<string>(rows[0], "OnlyOnRight"), Is.EqualTo("y"));
     }
 
     [Test]

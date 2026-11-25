@@ -122,7 +122,7 @@ internal sealed partial class QueryEvaluator
                 ? Convert.ToBoolean(value, CultureInfo.InvariantCulture) : null;
         if (type == ScalarTypes.DateTime)
             return value is DateTime or DateTimeOffset ? ScalarFunctions.ConvertTo(value, type) : null;
-        if (type == ScalarTypes.TimeSpan) return value is TimeSpan ? value : null;
+        if (type == ScalarTypes.TimeSpan) return value is TimeSpan or long ? ScalarFunctions.ConvertTo(value, type) : null;
         if (type == ScalarTypes.Guid) return value is Guid ? value : null;
         throw new NotSupportedException($"Unsupported mv expansion type: {type.Name}");
     }

@@ -16,18 +16,10 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
 
     internal ExecutionResult Execute(string query)
     {
-        var code = KustoCode.Parse(query);
-        // Keep the standalone legacy operators' coercions; typed operators and let bodies use the binder.
-        if (code.Syntax.GetFirstDescendant<LetStatement>() is not null ||
-            code.Syntax.GetFirstDescendant<Expression>(NeedsBinding) is not null ||
-            code.Syntax.GetDescendants<NameReference>().Any(n => _tables.TryGetValue(n.SimpleName, out var table)
-                && table.Schema.Values.Any(c => c.GetColumnType() == typeof(object))))
-        {
-            code = Analyze(code);
-        }
-        var diagnostics = code.HasSemantics ? code.GetDiagnostics() : code.GetSyntaxDiagnostics();
-        var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error && !IsRuntimeDynamicCheck(code, d))
+        var code = Analyze(KustoCode.Parse(query));
+        var errors = code.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error && !IsServiceCompatible(code, d))
             .Select(d => new ExecutionError { Code = d.Code, Description = d.Message }).ToList();
+        if (errors.Count == 0) errors.AddRange(ValidateServiceSemantics(code));
         if (errors.Count != 0) return new ExecutionResult { ExecutionErrors = errors };
         if (code.Syntax is not QueryBlock block || block.Statements.Count == 0 ||
             block.Statements[^1].Element is not ExpressionStatement final)
@@ -35,15 +27,21 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             throw new ArgumentException("A query must end with a tabular expression.", nameof(query));
         }
         var scope = BindStatements(block.Statements.Take(block.Statements.Count - 1).Select(s => s.Element));
+        scope.ValidateConstantArguments(final.Expression);
         return new ExecutionResult { ResultRows = scope.ExecuteExpression(final.Expression).Select(r => r.AsReadOnly()).ToList() };
     }
 
-    private static bool IsRuntimeDynamicCheck(KustoCode code, Diagnostic diagnostic)
+    private static bool IsServiceCompatible(KustoCode code, Diagnostic diagnostic)
     {
-        // The binder knows the shape of literals more precisely than that of a stored dynamic column.
-        // A missing slot or wrong index kind returns null for both, not an error on the literal alone.
-        if (diagnostic.Code is not ("KS141" or "KS147" or "KS234" or "KS235") || !diagnostic.HasLocation) return false;
+        if (diagnostic.Code is not ("KS005" or "KS180" or "KS141" or "KS147" or "KS234" or "KS235") || !diagnostic.HasLocation) return false;
         var node = code.Syntax.GetNodeAt(diagnostic.Start, diagnostic.Length);
+        if (diagnostic.Code == "KS005")
+            return node is LiteralExpression { Kind: SyntaxKind.TokenLiteralExpression,
+                Parent: NamedParameter { Name.SimpleName: "kind", Parent.Parent: ParseOperator } };
+        if (diagnostic.Code == "KS180")
+            return node.GetFirstAncestor<NamedParameter>() is { Name.SimpleName: "kind", Parent.Parent: JoinOperator };
+        // Literal dynamic shapes are known to the binder; the service handles a missing slot
+        // or an unsuitable collection at runtime just like a stored dynamic column.
         if (diagnostic.Code is "KS234" or "KS235")
             return node is Expression { ResultType: DynamicSymbol } && node.GetFirstAncestor<FunctionCallExpression>() is { } call
                 && DynamicCollections.Supports(call.Name.SimpleName) && call.ArgumentList.Expressions.Any(a => a.Element == node);
@@ -51,18 +49,6 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         return bracket?.Parent is ElementExpression { Expression.ResultType: DynamicSymbol } access && access.Selector == bracket &&
             (diagnostic.Code == "KS147" ? node == bracket : node == bracket.Expression);
     }
-
-    private static bool NeedsBinding(Expression expression) => expression switch
-    {
-        SummarizeOperator or ParseOperator or GetSchemaOperator or ToScalarExpression or UnionOperator or JoinOperator
-            or DynamicExpression or DataTableExpression or EvaluateOperator or PathExpression or ElementExpression
-            or MvApplyOperator or MvExpandOperator or TopOperator or ProjectAwayOperator => true,
-        FunctionCallExpression f => DynamicCollections.Supports(f.Name.SimpleName) || f.Name.SimpleName is "bin" or "floor" or "bin_at" or "strcat" or "trim"
-            or "toint" or "tolong" or "toreal" or "todouble" or "tostring" or "tobool" or "toboolean"
-            or "parse_json" or "parsejson" or "todynamic" or "toobject" or "extract_json" or "extractjson"
-            or "coalesce" or "case" or "iff" or "iif" or "gettype" or "toguid",
-        _ => false
-    };
 
     private IEnumerable<Dictionary<string, object?>> ExecuteExpression(Expression expr)
     {
@@ -92,18 +78,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
                 return ApplyOperator(left, pipe.Operator);
             }
             case PrintOperator printOperator:
-            {
-                var result = new QueryRow();
-                var input = new QueryRow();
-                for (int i = 0; i < printOperator.Expressions.Count; i++)
-                {
-                    var expression = printOperator.Expressions[i].Element;
-                    var name = expression is SimpleNamedExpression named ? named.Name.SimpleName : $"print_{i}";
-                    result.Add(name, EvalOperand(UnwrapOutput(expression), input));
-                }
-
-                return [result];
-            }
+                return SelectColumns([new QueryRow()], printOperator.Expressions, extend: false);
             default:
             {
                 throw new NotSupportedException($"Unsupported expression type: {expr.GetType().Name}");
@@ -235,9 +210,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         foreach (var item in inExpression.Right.Expressions)
         {
             var expression = UnwrapParens(item.Element);
-            if (expression.ResultType is TableSymbol || expression is PipeExpression ||
-                (expression.ResultType is null && expression is NameReference name && !row.ContainsKey(name.SimpleName) &&
-                 _tables.ContainsKey(name.SimpleName)))
+            if (expression.ResultType is TableSymbol)
             {
                 // Tabular membership tests set inclusion: a null subquery value is never a match.
                 var candidates = Cached(expression, () => ExecuteExpression(expression).Select(r => r.Values.FirstOrDefault()).ToArray());
@@ -249,8 +222,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
                 var candidate = evaluate(expression);
                 if (expression.ResultType is DynamicSymbol)
                 {
-                    if (candidate is QueryRow || (!expression.IsConstant && expression.GetFirstDescendantOrSelf<NameReference>(
-                        n => row.ContainsKey(n.SimpleName)) is not null))
+                    if (candidate is QueryRow)
                         throw new ArgumentException("in expects a constant dynamic array, not a row-dependent value or a property bag.");
                     if (inExpression.Left.ResultType is DynamicSymbol && expression.ResultType is DynamicArraySymbol array &&
                         array.ElementType != ScalarTypes.String && array.ElementType is not DynamicSymbol)
@@ -468,7 +440,6 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             "url_decode" => FunctionExpressions.UrlDecode(args),
             "toupper" => FunctionExpressions.ToUpper(args),
             "tolower" => FunctionExpressions.ToLower(args),
-            "strlen" when call.ResultType == Kusto.Language.Symbols.ScalarTypes.Long => (long)FunctionExpressions.StrLen(args),
             "strlen" => FunctionExpressions.StrLen(args),
             "todatetime" => FunctionExpressions.ToDateTime(args),
             "make_timespan" => FunctionExpressions.MakeTimeSpan(args),
@@ -485,7 +456,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             "not" => !(bool?)args[0],
             "parse_json" or "todynamic" or "parsejson" or "toobject" =>
                 call.ArgumentList.Expressions[0].Element.ResultType is DynamicSymbol ? args[0] : DynamicValues.Parse(args[0]),
-            "extract_json" or "extractjson" => DynamicValues.Extract((string?)args[0], args[1], args.Length == 3 ? (TypeSymbol?)args[2] : null),
+            "extract_json" or "extractjson" => DynamicValues.Extract((string?)args[0], (string?)args[1], args.Length == 3 ? (TypeSymbol?)args[2] : null),
             "gettype" => args[0] switch
             {
                 null => "null",
@@ -526,7 +497,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         LiteralExpression leaf => ParseLiteral(leaf) switch
         {
             string text => DynamicValues.InferString(text),
-            TimeSpan span when !leaf.Token.Text.Contains('(', StringComparison.Ordinal) => span.Ticks,
+            TimeSpan span => span.Ticks,
             var scalar => DynamicValues.PackedScalar(scalar)
         },
         _ => EvalOperand(literal, new QueryRow())
@@ -554,26 +525,33 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
     private IEnumerable<QueryRow> SelectColumns(IEnumerable<QueryRow> source,
         SyntaxList<SeparatedElement<Expression>> expressions, bool extend)
     {
-        var schema = (expressions.Parent as Expression)?.ResultType as TableSymbol;
+        var op = (QueryOperator)expressions.Parent!;
+        var schema = (TableSymbol)op.ResultType;
         int ordinal = 0;
         var props = expressions.Select(item =>
         {
             var value = UnwrapOutput(item.Element);
             if (value.RawResultType is TupleSymbol tuple)
             {
-                var names = tuple.Columns.Select(c => extend
-                    ? schema!.Columns.First(o => o.Source == c.Source).Name
-                    : schema!.Columns[ordinal++].Name).ToArray();
+                // A named print projects only the first tuple field unless multiple names were supplied.
+                int count = (op, item.Element) switch
+                {
+                    (PrintOperator, SimpleNamedExpression) => 1,
+                    (PrintOperator, CompoundNamedExpression named) => named.Names.Names.Count,
+                    _ => tuple.Columns.Count
+                };
+                var names = tuple.Columns.Take(count).Select(c => extend
+                    ? schema.Columns.First(o => o.Source == c.Source).Name
+                    : schema.Columns[ordinal++].Name).ToArray();
                 return (Names: names, Expr: value, Tuple: value.ResultType is TupleSymbol);
             }
             string alias = item.Element switch
             {
+                _ when !extend => schema.Columns[ordinal].Name,
                 NameReference name => name.SimpleName,
                 SimpleNamedExpression named => named.Name.SimpleName,
-                _ when extend => schema?.Columns.FirstOrDefault(c => c.Source == item.Element)?.Name ??
-                    throw new ArgumentException($"Cannot determine the output column for {item.Element}."),
-                _ when schema is not null => schema.Columns[ordinal].Name,
-                _ => throw new NotSupportedException($"Unsupported column expression: {item.Element.Kind}")
+                _ => schema.Columns.FirstOrDefault(c => c.Source == item.Element)?.Name ??
+                    throw new ArgumentException($"Cannot determine the output column for {item.Element}.")
             };
             ordinal++;
             return (Names: (string[])[alias], Expr: value, Tuple: false);
@@ -632,7 +610,8 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
     private object? ParseLiteral(LiteralExpression lit) => lit.Kind switch
     {
         SyntaxKind.NullLiteralExpression => null,
-        SyntaxKind.DateTimeLiteralExpression when lit.Token.Text is "datetime()" or "datetime(now)" => _queryTime,
+        SyntaxKind.DateTimeLiteralExpression when lit.Token.ValueText == "now" => _queryTime,
+        SyntaxKind.DateTimeLiteralExpression => ScalarFunctions.ConvertTo(lit.LiteralValue, ScalarTypes.DateTime),
         SyntaxKind.RealLiteralExpression when lit.Token.Text is "real(+inf)" or "real(inf)" => double.PositiveInfinity,
         SyntaxKind.RealLiteralExpression when lit.Token.Text == "real(-inf)" => double.NegativeInfinity,
         _ => lit.LiteralValue

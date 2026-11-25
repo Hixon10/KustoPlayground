@@ -195,9 +195,10 @@ public partial class SummarizeAstraTests
         Assert.That(actual, Has.Count.EqualTo(1));
         var (sampleVariance, populationVariance, sampleDeviation, populationDeviation) = actual[0];
         Assert.That(sampleVariance, Is.EqualTo(4.0).Within(1e-12));
-        Assert.That(populationVariance, Is.EqualTo(8.0 / 3).Within(1e-12));
+        // Kusto rounds variance results to 10 decimal places; stdevp is the square root of that rounded variance.
+        Assert.That(populationVariance, Is.EqualTo(2.6666666667).Within(1e-12));
         Assert.That(sampleDeviation, Is.EqualTo(2.0).Within(1e-12));
-        Assert.That(populationDeviation, Is.EqualTo(Math.Sqrt(8.0 / 3)).Within(1e-12));
+        Assert.That(populationDeviation, Is.EqualTo(Math.Sqrt(2.6666666667)).Within(1e-12));
     }
 
     [Test]

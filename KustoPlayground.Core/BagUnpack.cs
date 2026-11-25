@@ -36,7 +36,8 @@ internal sealed partial class QueryEvaluator
             }
         }
 
-        var input = ColumnsOf(pipe.Expression).Where(c => c.Name != bag.SimpleName).ToDictionary(c => c.Name, StringComparer.Ordinal);
+        var sourceColumns = ColumnsOf(pipe.Expression);
+        var input = sourceColumns.Where(c => c.Name != bag.SimpleName).ToDictionary(c => c.Name, StringComparer.Ordinal);
         var output = new Dictionary<string, ColumnSymbol>(StringComparer.Ordinal);
         var slots = new Dictionary<string, string>(StringComparer.Ordinal);
         if (op.Schema is null || op.Schema.Schema.AsteriskToken is not null)
@@ -79,6 +80,11 @@ internal sealed partial class QueryEvaluator
                         var type = ColumnType(value.GetType());
                         types[key] = types.TryGetValue(key, out var prior) && prior != type ? ScalarTypes.Dynamic : type;
                     }
+            if (types.Count == 0)
+            {
+                _discoveredSchemas[op] = sourceColumns;
+                return rows;
+            }
             foreach (var (key, type) in types) Slot(key, type);
         }
         _discoveredSchemas[op] = output.Values.ToArray();

@@ -27,9 +27,32 @@ internal sealed partial class QueryEvaluator
                         : i < signature.Parameters.Count ? signature.Parameters[i] : Signature.UnknownParameter);
             });
         var bagUnpack = new FunctionSymbol("bag_unpack", unpackSignature);
-        return globals.WithAggregates(globals.Aggregates.Select(f => f.Name == "count" ? count : f).ToArray())
+        var aggregates = globals.Aggregates.Select(f => f.Name switch
+        {
+            "count" => count,
+            "cnt" => f.WithResultNamePrefix("count"),
+            "sum" or "sumif" or "avg" or "avgif" => AddSignature(f, new Signature(
+                f.Name.StartsWith("avg", StringComparison.Ordinal) ? ScalarTypes.Real : ScalarTypes.Long,
+                [new Parameter("expr", ScalarTypes.Bool), .. f.Signatures[0].Parameters.Skip(1)])),
+            "covariance" or "covariancep" or "covarianceif" or "covariancepif" =>
+                new FunctionSymbol(f.Name, context =>
+                {
+                    // A single-field tuple supplies the projected name but still reduces to a scalar in arithmetic.
+                    var names = context.Arguments.Take(2).Select(a => KustoFacts.GetExpressionResultName(a, "", context.RowScope));
+                    return new TupleSymbol(new ColumnSymbol(f.Name + "_" + string.Join("_", names), ScalarTypes.Real));
+                }, Tabularity.Scalar, f.Signatures[0].Parameters),
+            _ => f
+        }).ToArray();
+        var functions = globals.Functions.Select(f => f.Name is "bin" or "floor"
+            ? AddSignature(f, new Signature(ScalarTypes.DateTime, new Parameter("value", ScalarTypes.DateTime),
+                new Parameter("roundTo", ParameterTypeKind.Number))) : f).ToArray();
+        return globals.WithFunctions(functions).WithAggregates(aggregates)
             .WithPlugIns(globals.PlugIns.Select(f => f.Name == "bag_unpack" ? bagUnpack : f).ToArray());
     }
+
+    private static FunctionSymbol AddSignature(FunctionSymbol f, Signature signature) =>
+        new FunctionSymbol(f.Name, f.Signatures.Append(signature), f.Description)
+            .WithResultNameKind(f.ResultNameKind).WithResultNamePrefix(f.ResultNamePrefix).WithIsConstantFoldable(f.IsConstantFoldable);
 
     private KustoCode Analyze(KustoCode code)
     {

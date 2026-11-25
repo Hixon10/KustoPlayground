@@ -20,12 +20,12 @@ public class FunctionExpressionsTests
         Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName: columnName, tableName: "table1");
         kustoDatabase.AddTable(table);
 
-        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<int>(
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(
             columnName,
             kustoDatabase,
             "table1 | extend column1 = strlen(column1)");
 
-        var expectedData = new List<int>
+        var expectedData = new List<long>
         {
             5,
             0,

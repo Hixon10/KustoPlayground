@@ -504,7 +504,7 @@ public class NeonParseOperatorTests
     }
 
     [Test]
-    [Description("parse - invalid pattern, unknown kind, unknown type, and invalid regex return errors")]
+    [Description("parse - invalid pattern, unknown type, and invalid regex return errors, an unknown kind is accepted and treated like kind=simple")]
     public void Parse_InvalidSyntaxOrArguments_ReturnsError()
     {
         var db = new KustoDatabase();
@@ -516,9 +516,14 @@ public class NeonParseOperatorTests
 
         // Wildcard '*' immediately after a string column is disallowed in KQL
         NeonTestUtils.ExecuteAndExpectError(db, "T | parse Text with A * B");
-        NeonTestUtils.ExecuteAndExpectError(db, "T | parse kind=invalid Text with A ' ' B");
         NeonTestUtils.ExecuteAndExpectError(db, "T | parse Text with A:unknown_type");
         NeonTestUtils.ExecuteAndExpectError(db, "T | parse kind=regex Text with '[unclosed' A");
+
+        // Kusto doesn't reject an unknown kind, the pattern is applied like the default kind=simple
+        var unknownKindRows = NeonTestUtils.ExecuteAndAssertNoErrors(db, "T | parse kind=invalid Text with A ' ' B");
+        Assert.That(unknownKindRows, Has.Count.EqualTo(1));
+        Assert.That(unknownKindRows[0]["A"], Is.EqualTo("hello"));
+        Assert.That(unknownKindRows[0]["B"], Is.EqualTo("world"));
     }
 
     #endregion

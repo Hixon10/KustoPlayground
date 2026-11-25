@@ -44,7 +44,8 @@ public class DynamicValuesAndConversionsAstraTests
             "Events | project Id, Kind=gettype(P), Missing=isnull(P)");
         Assert.That(rows, Is.EquivalentTo(new (long, string, bool)[]
         {
-            (1, "null", true), (2, "bool", false), (3, "int", false), (4, "long", false),
+            // Kusto widens an int held in a dynamic value to long, so gettype reports "long" for it too.
+            (1, "null", true), (2, "bool", false), (3, "long", false), (4, "long", false),
             (5, "double", false), (6, "string", false), (7, "datetime", false), (8, "timespan", false),
             (9, "guid", false), (10, "array", false), (11, "dictionary", false)
         }));
@@ -55,7 +56,8 @@ public class DynamicValuesAndConversionsAstraTests
         new("9007199254740993", "long", "tolong", 9007199254740993L),
         new("datetime(2024-02-29T12:34:56.1234567Z)", "datetime", "todatetime",
             new DateTime(2024, 2, 29, 12, 34, 56, DateTimeKind.Utc).AddTicks(1234567)),
-        new("time(00:01:30.125)", "timespan", "totimespan", TimeSpan.FromMilliseconds(90125)),
+        // Kusto stores a timespan inside a dynamic literal as its tick count (a long); totimespan still recovers it exactly.
+        new("time(00:01:30.125)", "long", "totimespan", TimeSpan.FromMilliseconds(90125)),
         new("guid(73c22437-33ba-4f69-8c68-4f3e8b53878b)", "guid", "toguid", Guid.Parse("73c22437-33ba-4f69-8c68-4f3e8b53878b"))
     ];
 
@@ -148,7 +150,8 @@ public class DynamicValuesAndConversionsAstraTests
     [TestCase("todouble", "\"0.125\"", 0.125)]
     [TestCase("tobool", "\"FALSE\"", false)]
     [TestCase("tostring", "null", "")]
-    [TestCase("toint", "\"2147483648\"", null)]
+    // Kusto's toint of a dynamic slot wraps the parsed value to 32 bits instead of returning null.
+    [TestCase("toint", "\"2147483648\"", int.MinValue)]
     [TestCase("tolong", "\"9223372036854775808\"", null)]
     [TestCase("toreal", "\"bad\"", null)]
     [TestCase("todouble", "null", null)]

@@ -454,7 +454,8 @@ public class DynamicNeonAggregatesBagUnpackAndIntegrationTests
 
         var rows = Execute(db, "AllEmptyBags | evaluate bag_unpack(Props) | sort by Id asc");
         Assert.That(rows, Has.Count.EqualTo(2));
-        Assert.That(rows[0].Keys, Is.EquivalentTo(new[] { "Id" }));
+        // No property is discovered in any row, so Kusto returns the input unchanged (the Props column is kept).
+        Assert.That(rows[0].Keys, Is.EquivalentTo(new[] { "Id", "Props" }));
 
         var emptyRows = Execute(db, "EmptyBags | evaluate bag_unpack(Props) : (*, Name:string, Age:long)");
         Assert.That(emptyRows, Is.Empty);

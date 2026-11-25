@@ -202,11 +202,21 @@ public class DateTimeTests
         KustoDatabase kustoDatabase = new KustoDatabase();
         kustoDatabase.AddTable(TestUtils.BuildTestTable());
 
-        string query = """ 
+        // Real Kusto rejects datetime() without a value:
+        // SYN0002 "'' could not be parsed as a literal of type 'datetime'".
+        string invalidQuery = """ 
                        StormEvents
                            | extend EndTime = datetime(2025-12-31)
                            | extend EndTime2 = datetime(2015-07-25 22:54:59)
                            | extend EndTime3 = datetime()
+                           | extend EndTime4 = todatetime("2015-12-31 23:59:59")
+                       """;
+        Assert.That(kustoDatabase.ExecuteQuery(invalidQuery).ExecutionErrors, Is.Not.Null);
+
+        string query = """ 
+                       StormEvents
+                           | extend EndTime = datetime(2025-12-31)
+                           | extend EndTime2 = datetime(2015-07-25 22:54:59)
                            | extend EndTime4 = todatetime("2015-12-31 23:59:59")
                        """;
 
@@ -218,17 +228,10 @@ public class DateTimeTests
         {
             Assert.That(row["EndTime"]!.GetType(), Is.EqualTo(typeof(DateTime)));
             Assert.That(row["EndTime2"]!.GetType(), Is.EqualTo(typeof(DateTime)));
-            Assert.That(row["EndTime3"]!.GetType(), Is.EqualTo(typeof(DateTime)));
             Assert.That(row["EndTime4"]!.GetType(), Is.EqualTo(typeof(DateTime)));
 
             Assert.That(row["EndTime"]!, Is.EqualTo(new DateTime(2025, 12, 31)));
             Assert.That(row["EndTime2"]!, Is.EqualTo(new DateTime(2015, 07, 25, 22, 54, 59)));
-
-            DateTime now = DateTime.UtcNow;
-            TimeSpan delta = TimeSpan.FromMinutes(1);
-            Assert.That(row["EndTime3"]!, Is.InRange(now - delta, now + delta),
-                $"Expected {row["EndTime3"]!} to be within +-1 minute of {now:o}");
-
             Assert.That(row["EndTime4"]!, Is.EqualTo(new DateTime(2015, 12, 31, 23, 59, 59)));
         }
     }

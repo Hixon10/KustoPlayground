@@ -16,7 +16,7 @@ internal static partial class DynamicValues
         JsonElement element => Read(element),
         IReadOnlyDictionary<string, object?> bag => bag.ToDictionary(p => p.Key, p => FromStorage(p.Value), StringComparer.Ordinal),
         IList list => list.Cast<object?>().Select(FromStorage).ToArray(),
-        _ => value
+        _ => PackedScalar(value)
     };
 
     internal static object? PackedScalar(object? value) => value switch
@@ -73,8 +73,11 @@ internal static partial class DynamicValues
             case JsonElement element:
                 Write(writer, Read(element));
                 break;
+            case double or float when !double.IsFinite(Convert.ToDouble(value, CultureInfo.InvariantCulture)):
+                writer.WriteStringValue(Convert.ToString(value, CultureInfo.InvariantCulture));
+                break;
             case double or float:
-                // Kusto preserves the real type (2.0) and permits bare NaN, inf and -inf.
+                // Preserve the real type (2.0) and Kusto's exponent spelling.
                 writer.WriteRawValue(ScalarFunctions.ToText(value), skipInputValidation: true);
                 break;
             case decimal or DateTime or DateTimeOffset or TimeSpan or Guid:
@@ -93,13 +96,10 @@ internal static partial class DynamicValues
         _ => value
     };
 
-    internal static object? Extract(string? path, object? json, TypeSymbol? targetType)
+    internal static object? Extract(string? path, string? json, TypeSymbol? targetType)
     {
         object? selected = null;
-        bool found = path is not null && (json is string text
-            ? TryRead(text, path, out selected)
-            : json is not null && TrySelect(path, json, out selected));
-        if (selected is JsonElement element) selected = Read(element);
+        bool found = path is not null && json is not null && TryRead(json, path, out selected);
         if (targetType is null || targetType == ScalarTypes.String)
         {
             if (!found) return string.Empty;

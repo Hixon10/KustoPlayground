@@ -150,7 +150,7 @@ public class NullableInAndBetweenNeonTests
     }
 
     [Test]
-    [Description("in / !in with computed expression on LHS and column references on RHS when nulls are present")]
+    [Description("in / !in with computed expression on LHS when nulls are present; column references on RHS are rejected because the list must contain scalar constants")]
     public void Where_InAndNotIn_ComputedLhsAndColumnRhs_WithNulls()
     {
         var table = new NullableTableBuilder("Pairs")
@@ -174,16 +174,12 @@ public class NullableInAndBetweenNeonTests
             ExecuteAndGetNullableColumn<int?>("Id", kustoDatabase, "Pairs | where (A + 1) !in (3, 10)"),
             Is.EquivalentTo(new int?[] { 2, 3, 4 }));
 
-        // A in (B, 5): row 1 -> 2 in (3, 5) = false; row 2 -> 5 in (null, 5) = true;
-        // row 3 -> null in (3, 5) = false; row 4 -> null in (null, 5) = null (dropped)
-        Assert.That(
-            ExecuteAndGetNullableColumn<int?>("Id", kustoDatabase, "Pairs | where A in (B, 5)"),
-            Is.EquivalentTo(new int?[] { 2 }));
+        // A column reference in the list is not a scalar constant:
+        // Kusto rejects it with SEM0040 "in(): failed to cast argument 2 to scalar constant"
+        NeonTestUtils.ExecuteAndExpectError(kustoDatabase, "Pairs | where A in (B, 5)");
 
-        // A !in (B, 5): row 1 -> true; row 2 -> false; row 3 -> true; row 4 -> null (dropped)
-        Assert.That(
-            ExecuteAndGetNullableColumn<int?>("Id", kustoDatabase, "Pairs | where A !in (B, 5)"),
-            Is.EquivalentTo(new int?[] { 1, 3 }));
+        // Same for !in: SEM0040 "!in(): failed to cast argument 2 to scalar constant"
+        NeonTestUtils.ExecuteAndExpectError(kustoDatabase, "Pairs | where A !in (B, 5)");
     }
 
     [Test]

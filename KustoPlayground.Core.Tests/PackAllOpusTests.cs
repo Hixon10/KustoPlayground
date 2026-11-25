@@ -127,7 +127,8 @@ public class PackAllOpusTests
     }
 
     [Test]
-    [Description("pack_all - special real values are written as bare NaN/inf/-inf (not valid JSON), small reals in exponent form")]
+    [Description("pack_all - special real values of a table column are written as the JSON strings \"NaN\"/\"Infinity\"/\"-Infinity\", "
+                 + "small reals in exponent form")]
     public void PackAll_SpecialRealValues_ReturnsKustoFormat()
     {
         var table = OpusTestUtils.NewTable("Edges")
@@ -147,7 +148,7 @@ public class PackAllOpusTests
             kustoDatabase,
             "Edges | extend Json = tostring(pack_all()) | project Json");
 
-        OpusTestUtils.AssertTypedValue(actual, """{"r3":1e-7,"r4":NaN,"r5":inf,"r6":-inf,"l":9223372036854775807}""");
+        OpusTestUtils.AssertTypedValue(actual, """{"r3":1e-7,"r4":"NaN","r5":"Infinity","r6":"-Infinity","l":9223372036854775807}""");
     }
 
     [Test]

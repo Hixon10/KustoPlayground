@@ -46,9 +46,10 @@ public class DynamicNeonInspectionConversionAndConstructionTests
             """);
 
         Assert.That(rows, Has.Count.EqualTo(13));
+        // Kusto has no int subtype inside dynamic: an int value stored in dynamic reports "long".
         string[] expectedTypes =
         [
-            "null", "string", "int", "long", "double", "bool",
+            "null", "string", "long", "long", "double", "bool",
             "datetime", "timespan", "guid", "array", "dictionary", "array", "dictionary"
         ];
 
@@ -187,7 +188,8 @@ public class DynamicNeonInspectionConversionAndConstructionTests
         AssertLongEqual(row["IntFromFlt"], 3);
         AssertLongEqual(row["IntFromNegFlt"], -3);
         AssertLongEqual(row["IntFromStr"], 123);
-        Assert.That(row["IntFromBigStr"], Is.Null, "String exceeding Int32 range returns null from toint().");
+        AssertLongEqual(row["IntFromBigStr"], unchecked((int)9_000_000_000_000L),
+            "toint() of a numeric string held in dynamic wraps like unchecked (int) in ADX (a plain string out of Int32 range gives null).");
         AssertLongEqual(row["IntFromBoolT"], 1);
         AssertLongEqual(row["IntFromBoolF"], 0);
         AssertLongEqual(row["IntOverflowWrap"], unchecked((int)9_000_000_000_000L),

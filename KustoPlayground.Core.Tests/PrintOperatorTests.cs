@@ -56,12 +56,12 @@ public class PrintOperatorTests
     {
         var kustoDatabase = new KustoDatabase();
 
-        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(
             "sum",
             kustoDatabase,
             "print sum=2+3");
 
-        Assert.That(actualData, Is.EquivalentTo(new List<double> { 5 }));
+        Assert.That(actualData, Is.EquivalentTo(new List<long> { 5 }));
     }
 
     [Test]
@@ -70,13 +70,13 @@ public class PrintOperatorTests
     {
         var kustoDatabase = new KustoDatabase();
 
-        var actualData = TestUtils.ExecuteAndGetDataFor2Columns<double, string>(
+        var actualData = TestUtils.ExecuteAndGetDataFor2Columns<long, string>(
             columnName1: "print_0",
             columnName2: "x",
             kustoDatabase,
             "print 0+1+2+3+4+5, x='Wow!'");
 
-        var expected = new List<(double, string)>
+        var expected = new List<(long, string)>
         {
             (15, "Wow!")
         };
@@ -90,12 +90,12 @@ public class PrintOperatorTests
     {
         var kustoDatabase = new KustoDatabase();
 
-        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(
             "print_0",
             kustoDatabase,
             "print 1+2+3;");
 
-        Assert.That(actualData, Is.EquivalentTo(new List<double> { 6 }));
+        Assert.That(actualData, Is.EquivalentTo(new List<long> { 6 }));
     }
 
     [Test]

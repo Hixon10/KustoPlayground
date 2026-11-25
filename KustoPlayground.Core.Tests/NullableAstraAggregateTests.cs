@@ -51,8 +51,9 @@ public partial class NullableAstraTests
         AssertIsNull(row, "Payload");
     }
 
+    // Kusto rounds the covariance to 10 decimal places: -16 / 3 is returned as -5.3333333333
     [TestCase("covariance", -8.0)]
-    [TestCase("covariancep", -16.0 / 3)]
+    [TestCase("covariancep", -5.3333333333)]
     public void CovarianceDropsIncompletePairsRatherThanDroppingNullsFromEachSeriesIndependently(
         string aggregate, double expected)
     {

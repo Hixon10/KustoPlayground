@@ -160,7 +160,7 @@ internal static class FunctionExpressions
 #pragma warning restore CA1308
     }
 
-    public static int StrLen(object?[] args)
+    public static long StrLen(object?[] args)
     {
         if (args.Length != 1)
         {

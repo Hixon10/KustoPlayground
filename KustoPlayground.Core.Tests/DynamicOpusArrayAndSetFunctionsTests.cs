@@ -288,12 +288,13 @@ public class DynamicOpusArrayAndSetFunctionsTests
     [TestCase("array_sort_asc(dynamic([2, 'a', 1.5, true]))", """[true,1.5,2,"a"]""", Description = "mixed element types")]
     [TestCase("array_sort_asc(dynamic([]))", "[]")]
     [TestCase("array_sort_asc(dynamic(null))", "null")]
-    [TestCase("array_sort_asc(dynamic([3, 1, 2]), dynamic(['c', 'a', 'b']))", """[[1,2,3],["a","b","c"]]""",
-        Description = "several arrays: the result is an array of the sorted arrays")]
-    [TestCase("array_sort_asc(dynamic([3, 1, 2]), dynamic(['x', 'y', 'z']))", """[[1,2,3],["y","z","x"]]""",
-        Description = "the other arrays are reordered like the first one")]
-    [TestCase("array_sort_desc(dynamic([3, 1, 2]), dynamic(['x', 'y', 'z']))", """[[3,2,1],["x","z","y"]]""")]
-    [TestCase("array_sort_asc(dynamic([2, 1]), dynamic(['x']))", "[[1,2],null]", Description = "an array of a different length becomes null")]
+    [TestCase("array_sort_asc(dynamic([3, 1, 2]), dynamic(['c', 'a', 'b']))", "[1,2,3]",
+        Description = "several arrays return one sorted array per output column, a single output column gets the first sorted array")]
+    [TestCase("array_sort_asc(dynamic([3, 1, 2]), dynamic(['x', 'y', 'z']))", "[1,2,3]",
+        Description = "the other arrays are only reordered like the first one, they don't change the first sorted array")]
+    [TestCase("array_sort_desc(dynamic([3, 1, 2]), dynamic(['x', 'y', 'z']))", "[3,2,1]")]
+    [TestCase("array_sort_asc(dynamic([2, 1]), dynamic(['x']))", "[1,2]",
+        Description = "another array of a different length doesn't change the first sorted array")]
     [Description("array_sort_asc / array_sort_desc - sort the elements of arrays")]
     public void ArraySort_ReturnsSortedArray(string expression, string expectedJson)
     {

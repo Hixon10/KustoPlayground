@@ -24,7 +24,7 @@ public class SummarizeNeonCountAndNumericAggregationsTests
     }
 
     [Test]
-    [Description("Summarize - cnt() alias behaves identically to count() with default column name cnt_")]
+    [Description("Summarize - cnt() alias behaves identically to count(), including the default column name count_")]
     public void Summarize_CntAlias_MatchesCount()
     {
         var kustoDatabase = new KustoDatabase();
@@ -36,7 +36,7 @@ public class SummarizeNeonCountAndNumericAggregationsTests
 
         var actual = TestUtils.ExecuteAndGetDataFor2Columns<string, long>(
             "Cat",
-            "cnt_",
+            "count_",
             kustoDatabase,
             "table1 | summarize cnt() by Cat");
 
@@ -211,11 +211,12 @@ public class SummarizeNeonCountAndNumericAggregationsTests
     }
 
     [Test]
-    [Description("Summarize - dcount() ignores null values and returns 0 for an all-null group")]
-    public void Summarize_DCount_IgnoresNulls()
+    [Description("Summarize - dcount() rejects a dynamic argument (SEM0205: an explicit cast such as tostring() is required)")]
+    public void Summarize_DCount_OnDynamicColumn_IsRejected()
     {
         var kustoDatabase = new KustoDatabase();
-        // A dynamic column can hold both string values and genuine nulls.
+        // A dynamic column can hold both string values and genuine nulls, but Kusto does not allow
+        // dcount() over a dynamic expression without an explicit cast.
         Table table = SummarizeNeonTestUtils.GenerateNullableTableWith2Columns<string, object>(
             [
                 ("G1", "x"),
@@ -230,13 +231,9 @@ public class SummarizeNeonCountAndNumericAggregationsTests
             columnName2: "Val");
         kustoDatabase.AddTable(table);
 
-        var actual = TestUtils.ExecuteAndGetDataFor2Columns<string, long>(
-            "Grp",
-            "dcount_Val",
+        SummarizeNeonTestUtils.ExecuteAndAssertError(
             kustoDatabase,
             "table1 | summarize dcount(Val) by Grp");
-
-        Assert.That(actual, Is.EquivalentTo(new List<(string, long)> { ("G1", 2L), ("G2", 0L) }));
     }
 
     [Test]
@@ -259,10 +256,11 @@ public class SummarizeNeonCountAndNumericAggregationsTests
     }
 
     [Test]
-    [Description("Summarize - dcountif() counts distinct values only where predicate is true and ignores nulls")]
-    public void Summarize_DCountIf_GroupedAndNulls()
+    [Description("Summarize - dcountif() rejects a dynamic first argument (SEM0205: an explicit cast such as tostring() is required)")]
+    public void Summarize_DCountIf_OnDynamicColumn_IsRejected()
     {
         var kustoDatabase = new KustoDatabase();
+        // Item is a dynamic column; Kusto does not allow dcountif() over a dynamic expression without an explicit cast.
         Table table = SummarizeNeonTestUtils.GenerateNullableTableWith3Columns<string, object, bool>(
             [
                 ("G1", "a", true),
@@ -279,13 +277,9 @@ public class SummarizeNeonCountAndNumericAggregationsTests
             columnName3: "Active");
         kustoDatabase.AddTable(table);
 
-        var actual = TestUtils.ExecuteAndGetDataFor2Columns<string, long>(
-            "Grp",
-            "dcountif_Item",
+        SummarizeNeonTestUtils.ExecuteAndAssertError(
             kustoDatabase,
             "table1 | summarize dcountif(Item, Active) by Grp");
-
-        Assert.That(actual, Is.EquivalentTo(new List<(string, long)> { ("G1", 2L), ("G2", 0L) }));
     }
 
     [Test]

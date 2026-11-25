@@ -70,11 +70,18 @@ public class DynamicArrayAndSetAstraTests
     [TestCase("7", "", -1)]
     [TestCase("'7'", "", 3)]
     [TestCase("'a'", ", 0, -2", null)]
-    [TestCase("'a'", ", 0, -1, -1", null)]
     public void ArrayIndexOfUsesExactValuesAndBoundsItsSearch(string needle, string options, int? expected)
     {
         var actual = AstraTestUtils.Print<object?>($"""array_index_of(dynamic(["a","b","a","7","a"]), {needle}{options})""");
         Assert.That(actual, Is.EqualTo(expected));
+    }
+
+    // Kusto requires the occurrence argument to be a constant positive int or long (SEM0031).
+    [TestCase("'a'", ", 0, -1, -1")]
+    public void ArrayIndexOfRejectsANonPositiveOccurrence(string needle, string options)
+    {
+        AstraTestUtils.AssertRejected(new KustoDatabase(),
+            $"""print Value = array_index_of(dynamic(["a","b","a","7","a"]), {needle}{options})""");
     }
 
     [TestCase("array_sort_asc(dynamic([10,null,-1,2,2]))", "[-1,2,2,10,null]")]

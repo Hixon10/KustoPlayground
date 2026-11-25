@@ -809,13 +809,18 @@ public class SummarizeOperatorOpusPipelineAndErrorsTests
     }
 
     [Test]
-    [Description("sum() and avg() of a bool column are rejected (KS138, KS127)")]
-    public void Invalid_SumAndAvgOfBool()
+    [Description("Unlike string, sum() and avg() of a bool column are accepted (true counts as 1, false as 0): sum() returns long, avg() returns real")]
+    public void SumAndAvgOfBool_AreAccepted()
     {
         var kustoDatabase = CreateDatabase(TestUtils.GenerateTableWithColumn(new[] { true, false, true }, "Flag", "Flags"));
 
-        AssertQueryFails(kustoDatabase, "Flags | summarize sum(Flag)");
-        AssertQueryFails(kustoDatabase, "Flags | summarize avg(Flag)");
+        var sumRow = ExecuteAndGetSingleRow(kustoDatabase, "Flags | summarize sum(Flag)");
+        AssertColumnsInOrder(sumRow, "sum_Flag");
+        Assert.That(GetValue<long>(sumRow, "sum_Flag"), Is.EqualTo(2L));
+
+        var avgRow = ExecuteAndGetSingleRow(kustoDatabase, "Flags | summarize avg(Flag)");
+        AssertColumnsInOrder(avgRow, "avg_Flag");
+        Assert.That(GetValue<double>(avgRow, "avg_Flag"), Is.EqualTo(2.0 / 3).Within(1e-9));
     }
 
     [Test]

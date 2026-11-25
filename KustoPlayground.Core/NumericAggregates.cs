@@ -52,6 +52,6 @@ internal static class NumericAggregates
             _coMoment += delta * (y - _meanY);
         }
 
-        internal double Covariance(bool population) => _count < 2 ? 0 : _coMoment / (population ? _count : _count - 1);
+        internal double Covariance(bool population) => _count < 2 ? 0 : Math.Round(_coMoment / (population ? _count : _count - 1), 10);
     }
 }

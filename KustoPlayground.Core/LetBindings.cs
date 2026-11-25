@@ -43,6 +43,7 @@ internal sealed partial class QueryEvaluator
                 throw new NotSupportedException($"Expected let before the result, found {statement.Kind}.");
             // let names an expression in its declaration scope, not a value in the caller's row.
             var closure = scope;
+            if (let.Expression is not FunctionDeclaration) closure.ValidateConstantArguments(let.Expression);
             Binding binding = let.Expression switch
             {
                 FunctionDeclaration declaration => new FunctionBinding(declaration, closure),
@@ -117,7 +118,9 @@ internal sealed partial class QueryEvaluator
         // The binder specializes tabular/wildcard parameters to the supplied table at each call site.
         var body = reference.GetCalledFunctionBody() as FunctionBody ?? udf.Declaration.Body;
         var frame = new QueryEvaluator(udf.Closure, bindings.ToImmutable(), functionCall: true);
-        return (frame.BindStatements(body.Statements.Select(s => s.Element)), body.Expression);
+        var scope = frame.BindStatements(body.Statements.Select(s => s.Element));
+        scope.ValidateConstantArguments(body.Expression);
+        return (scope, body.Expression);
     }
 
     private static ValueBinding BindValue(object? value, TypeExpression declaration)

@@ -215,13 +215,14 @@ public class SummarizeNeonStatsPercentilesAndBitwiseTests
             kustoDatabase,
             "Pairs | summarize covariance(X, Y), covariancep(X, Y) by Grp");
 
+        // Default names include both argument column names: covariance_X_Y, covariancep_X_Y
         Assert.That(
             SummarizeNeonTestUtils.GetColumnNames(rows[0]),
-            Is.EqualTo(new List<string> { "Grp", "covariance_X", "covariancep_X" }));
+            Is.EqualTo(new List<string> { "Grp", "covariance_X_Y", "covariancep_X_Y" }));
 
         var byGroup = rows.ToDictionary(
             r => (string)r["Grp"]!,
-            r => (Cov: SummarizeNeonTestUtils.AsDouble(r["covariance_X"]), CovP: SummarizeNeonTestUtils.AsDouble(r["covariancep_X"])));
+            r => (Cov: SummarizeNeonTestUtils.AsDouble(r["covariance_X_Y"]), CovP: SummarizeNeonTestUtils.AsDouble(r["covariancep_X_Y"])));
 
         Assert.That(byGroup["Pos"].Cov, Is.EqualTo(10.0 / 3.0).Within(1e-9));
         Assert.That(byGroup["Pos"].CovP, Is.EqualTo(2.5).Within(1e-9));
@@ -255,12 +256,13 @@ public class SummarizeNeonStatsPercentilesAndBitwiseTests
             kustoDatabase,
             "Pairs | summarize covarianceif(X, Y, Keep), covariancepif(X, Y, Keep)");
 
+        // Default names include both argument column names (the predicate is not part of the name)
         Assert.That(
             SummarizeNeonTestUtils.GetColumnNames(row),
-            Is.EqualTo(new List<string> { "covarianceif_X", "covariancepif_X" }));
+            Is.EqualTo(new List<string> { "covarianceif_X_Y", "covariancepif_X_Y" }));
         // Valid pairs: (1,10), (2,20), (3,30) => sum((x-2)(y-20)) = 20 => cov=20/2=10, covp=20/3
-        Assert.That(SummarizeNeonTestUtils.AsDouble(row["covarianceif_X"]), Is.EqualTo(10.0).Within(1e-9));
-        Assert.That(SummarizeNeonTestUtils.AsDouble(row["covariancepif_X"]), Is.EqualTo(20.0 / 3.0).Within(1e-9));
+        Assert.That(SummarizeNeonTestUtils.AsDouble(row["covarianceif_X_Y"]), Is.EqualTo(10.0).Within(1e-9));
+        Assert.That(SummarizeNeonTestUtils.AsDouble(row["covariancepif_X_Y"]), Is.EqualTo(20.0 / 3.0).Within(1e-9));
     }
 
     #endregion

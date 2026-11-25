@@ -310,7 +310,7 @@ public class DynamicNeonDataTypesLiteralsParsingAccessTests
         Assert.That(row["VStr"], Is.EqualTo("hello"));
         Assert.That(row["TDt"], Is.EqualTo("datetime"));
         AssertDateTimeEqual(row["VDt"], SampleUtc);
-        Assert.That(row["TTs"], Is.EqualTo("timespan"));
+        Assert.That(row["TTs"], Is.EqualTo("long")); // Kusto stores a timespan inside a dynamic literal as a long tick count (864000000000)
         AssertTimeSpanEqual(row["VTs"], TimeSpan.FromDays(1));
         Assert.That(row["TGuid"], Is.EqualTo("guid"));
         AssertGuidEqual(row["VGuid"], SampleGuid);
@@ -348,7 +348,7 @@ public class DynamicNeonDataTypesLiteralsParsingAccessTests
         Assert.That(row["Service"], Is.EqualTo("billing"));
         AssertLongEqual(row["Burst"], 500L);
         AssertTimeSpanEqual(row["Window"], TimeSpan.FromMinutes(5));
-        Assert.That(row["WindowType"], Is.EqualTo("timespan"));
+        Assert.That(row["WindowType"], Is.EqualTo("long")); // Kusto stores a timespan inside a dynamic literal as a long tick count; totimespan() still converts it back
         Assert.That(row["SecondRegion"], Is.EqualTo("westus"));
         Assert.That(row["CreatedType"], Is.EqualTo("datetime"));
         Assert.That(row["TraceType"], Is.EqualTo("guid"));

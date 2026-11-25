@@ -165,8 +165,6 @@ public class DynamicNeonArrayAndSetOperationsTests
                 ZeroLength = array_index_of(arr, "a", 0, 0),
                 NegStartFound = array_index_of(arr, "a", -2),
                 NegStartSecond = array_index_of(arr, "a", -4, 3, 2),
-                MatchBag = array_index_of(dynamic([{"k": 1}, {"k": 2}]), dynamic({"k": 2})),
-                BadOcc = array_index_of(arr, "a", 0, -1, -1),
                 BadLen = array_index_of(arr, "a", 0, -2),
                 NonArray = array_index_of(BagDyn, "a"),
                 NullArray = array_index_of(NullDyn, "a")
@@ -184,11 +182,22 @@ public class DynamicNeonArrayAndSetOperationsTests
         AssertLongEqual(row["ZeroLength"], -1L);
         AssertLongEqual(row["NegStartFound"], 4L);
         AssertLongEqual(row["NegStartSecond"], 4L);
-        AssertLongEqual(row["MatchBag"], 1L);
-        Assert.That(row["BadOcc"], Is.Null);
         Assert.That(row["BadLen"], Is.Null);
         AssertLongEqual(row["NonArray"], -1L);
         Assert.That(row["NullArray"], Is.Null);
+
+        // Kusto rejects a dynamic bag as the lookup value (SEM0479: argument #2 must be long, int, real, datetime, timespan, decimal, string or guid).
+        ExecuteAndExpectError(db, """
+            NonArrays
+            | project MatchBag = array_index_of(dynamic([{"k": 1}, {"k": 2}]), dynamic({"k": 2}))
+            """);
+
+        // Kusto rejects a negative occurrence (SEM0031: argument 5 must be a constant positive int or long value).
+        ExecuteAndExpectError(db, """
+            let arr = dynamic(["a", "b", "a", "c", "a", "A"]);
+            NonArrays
+            | project BadOcc = array_index_of(arr, "a", 0, -1, -1)
+            """);
     }
 
     // =========================================================================
@@ -331,7 +340,7 @@ public class DynamicNeonArrayAndSetOperationsTests
         AssertNumericEqual(row["MixedNum"], 13.0);
         AssertNumericEqual(row["Single"], 42.0);
         AssertNumericEqual(row["WithStr"], 4.0);
-        AssertNumericEqual(row["WithBool"], 1.0);
+        AssertNumericEqual(row["WithBool"], 2.0); // Kusto counts bool true as 1: array_sum(dynamic([1, true])) == 2
         AssertNumericEqual(row["WithNull"], 3.0);
         AssertNumericEqual(row["WithNested"], 1.0);
         Assert.That(row["FromBag"], Is.Null);

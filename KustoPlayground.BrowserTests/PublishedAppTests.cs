@@ -184,7 +184,7 @@ public class PublishedAppTests : PageTest
             """;
         await AssertQuery(query, "Label=bucket=10");
         await AssertQuery(query + " | getschema | project ColumnName, ColumnType", "ColumnName=Label, ColumnType=string");
-        await AssertQuery("print R=bin(4.5, 0.0) | project Bag=pack_all()", "Bag={\"R\":NaN}");
+        await AssertQuery("print R=bin(4.5, 0.0) | project Bag=pack_all()", """Bag={"R":"NaN"}""");
     }
 
     private async Task AssertQuery(string query, params string[] expectedRows)

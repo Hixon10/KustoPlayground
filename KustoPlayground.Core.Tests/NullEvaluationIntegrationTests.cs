@@ -2,12 +2,14 @@ namespace KustoPlayground.Core.Tests;
 
 public class NullEvaluationIntegrationTests
 {
+    // Kusto does not unify int and real branches into a common result type: coalesce and case are
+    // rejected with SEM0525 (return types are not compatible) and iff with SEM0019 (@then must match @else).
     [TestCase("coalesce(int(null), int(7), real(9))")]
     [TestCase("iff(bool(null), real(9), int(7))")]
     [TestCase("case(bool(null), real(9), true, int(7), int(0))")]
-    public void SelectedBranchUsesTheBoundResultType(string expression)
+    public void MixedIntAndRealBranchesAreRejected(string expression)
     {
-        OpusTestUtils.AssertTypedValue(OpusTestUtils.EvaluateScalar(expression), 7d);
+        OpusTestUtils.AssertQueryFails(new KustoDatabase(), $"print r = {expression}");
     }
 
     [Test]

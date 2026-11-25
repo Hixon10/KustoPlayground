@@ -884,9 +884,9 @@ public class BetweenOperatorTests
         }));
     }
 
-// String Range Tests (Lexicographic ordering)
+// String Range Tests (Kusto rejects string operands: between supports only numeric, datetime and timespan values)
     [Test]
-    [Description("Test string range with both ends included using between [\"b\",\"d\"]")]
+    [Description("Test string range using between [\"b\",\"d\"] is rejected (SEM0208: invalid data type: string)")]
     public void WhereStringBothEndsIncludedTest()
     {
         KustoDatabase kustoDatabase = new KustoDatabase();
@@ -897,14 +897,13 @@ public class BetweenOperatorTests
             tableRows, tableName: "stringTable", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
-            kustoDatabase,
-            "stringTable | where stringColumn between (\"b\" .. \"d\")");
-        Assert.That(actualData, Is.EquivalentTo(new List<string> { "b", "c", "d" }));
+        var results = kustoDatabase.ExecuteQuery("stringTable | where stringColumn between (\"b\" .. \"d\")");
+        Assert.That(results.ExecutionErrors, Is.Not.Null.And.Not.Empty);
+        Assert.That(results.ResultRows, Is.Null);
     }
 
     [Test]
-    [Description("Test string range exclusion using !between")]
+    [Description("Test string range exclusion using !between is rejected (SEM0208: invalid data type: string)")]
     public void WhereStringNotBetweenTest()
     {
         KustoDatabase kustoDatabase = new KustoDatabase();
@@ -915,10 +914,9 @@ public class BetweenOperatorTests
             tableRows, tableName: "stringTable", columnName: columnName);
         kustoDatabase.AddTable(table);
 
-        List<string> actualData = TestUtils.ExecuteAndGetDataForOneColumn<string>(TestUtils.GetColumnName(table),
-            kustoDatabase,
-            "stringTable | where stringColumn !between (\"b\" .. \"d\")");
-        Assert.That(actualData, Is.EquivalentTo(new List<string> { "a", "e" }));
+        var results = kustoDatabase.ExecuteQuery("stringTable | where stringColumn !between (\"b\" .. \"d\")");
+        Assert.That(results.ExecutionErrors, Is.Not.Null.And.Not.Empty);
+        Assert.That(results.ResultRows, Is.Null);
     }
 
 // Long Range Tests

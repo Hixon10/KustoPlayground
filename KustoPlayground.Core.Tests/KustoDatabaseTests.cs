@@ -182,9 +182,10 @@ public class KustoDatabaseTests
             var expectedElapsed4 = now.Add(TimeSpan.FromDays(10));
             Assert.That(elapsed4, Is.EqualTo(expectedElapsed4).Within(TimeSpan.FromMinutes(1)));
 
-            var a = (double)row["A"]!;
+            // int column - long literal => long in Kusto
+            var a = (long)row["A"]!;
             var damageProperty = (int)row["DamageProperty"]!;
-            Assert.That(a, Is.EqualTo(damageProperty - 53));
+            Assert.That(a, Is.EqualTo(damageProperty - 53L));
 
             var b = (double)row["B"]!;
             Assert.That(b, Is.EqualTo(42.2 - 53));
@@ -192,8 +193,9 @@ public class KustoDatabaseTests
             var c = (double)row["C"]!;
             Assert.That(c, Is.EqualTo(-42.2 + 53));
 
-            var d = (double)row["D"]!;
-            Assert.That(d, Is.EqualTo(10 * damageProperty));
+            // long literal * int column => long in Kusto
+            var d = (long)row["D"]!;
+            Assert.That(d, Is.EqualTo(10L * damageProperty));
 
             Assert.That(row["E"], Is.Null);
 
@@ -504,12 +506,13 @@ public class KustoDatabaseTests
         Table table = TestUtils.GenerateTableWithColumn(tableRows, columnName, "table5");
         kustoDatabase.AddTable(table);
 
-        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<double>(
+        // int column % long literal => long in Kusto
+        var actualData = TestUtils.ExecuteAndGetDataForOneColumn<long>(
             "col2",
             kustoDatabase,
             "table5 | extend col2 = col1 % 3");
 
-        Assert.That(actualData, Is.EquivalentTo(new List<double> { 1, 2, 0, 1 }));
+        Assert.That(actualData, Is.EquivalentTo(new List<long> { 1, 2, 0, 1 }));
     }
 
     [Test]

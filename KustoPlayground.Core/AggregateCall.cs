@@ -86,7 +86,7 @@ internal sealed class AggregateCall
                 or "covariance" or "covariancep" or "covarianceif" or "covariancepif" => Dispersion(rows),
             "make_list" or "make_list_if" or "make_list_with_nulls" or "make_set" or "make_set_if" => Collect(rows),
             "make_bag" or "make_bag_if" => MakeBag(values),
-            "binary_all_and" or "binary_all_or" or "binary_all_xor" => Bitwise(values),
+            "binary_all_and" or "binary_all_or" or "binary_all_xor" => ScalarFunctions.ConvertTo(Bitwise(values), _call.ResultType),
             _ => throw new NotSupportedException($"Aggregate {_name} is not implemented.")
         };
         return [result];
@@ -233,7 +233,7 @@ internal sealed class AggregateCall
         return result;
     }
 
-    private object Bitwise(IEnumerable<object> values)
+    private long? Bitwise(IEnumerable<object> values)
     {
         long? result = null;
         foreach (var value in values)
@@ -246,8 +246,7 @@ internal sealed class AggregateCall
                 _ => result.Value ^ n
             };
         }
-        if (_call.ResultType == ScalarTypes.Int) return (int)(result ?? 0);
-        return result ?? 0L;
+        return result;
     }
 }
 

@@ -92,6 +92,11 @@ Distinct counts and percentiles are computed exactly in memory. Shuffle hints do
 not change local execution. The local `hll` state can be merged and counted within
 a query; it is not an exchange format for Azure Data Explorer sketches.
 
+`bin(value, width)` accepts negative widths for numbers and timespans; for
+example, `bin(25, -10)` returns `30`. A numeric width for a datetime is in
+seconds. Unlike `bin`, `bin_at` requires a positive constant width and a
+non-null constant anchor.
+
 ## Working with nested JSON
 
 Declare a JSON import column as `"Type": "dynamic"` to store arrays, property
@@ -111,6 +116,9 @@ datatable(Items:dynamic)[dynamic([{"sku":7,"units":2},{"sku":8,"units":1}]), dyn
 
 Cast dynamic join keys to a scalar type first. Integer keys can match across
 `int` and `long` without changing the types of their output columns.
+Likewise, cast dynamic values before comparing them to each other or passing
+them to `dcount`. To test membership in a different array on each row, use
+`set_has_element(ArrayColumn, Value)`; a scalar `in (...)` list must be constant.
 
 ## Missing values
 

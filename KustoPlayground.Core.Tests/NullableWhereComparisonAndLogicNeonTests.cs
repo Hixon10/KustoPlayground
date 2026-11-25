@@ -29,14 +29,14 @@ public class NullableWhereComparisonAndLogicNeonTests
     }
 
     [Test]
-    [Description("datetime(null) evaluates to null while datetime() remains a non-null DateTime")]
+    [Description("datetime(null) evaluates to null while an empty datetime() literal is rejected (SYN0002: '' could not be parsed as a literal of type 'datetime')")]
     public void DateTimeNullLiteral_DistinguishedFromEmptyDateTime()
     {
         var kustoDatabase = new KustoDatabase();
-        var row = ExecuteAndGetSingleRow(kustoDatabase, "print NullDt = datetime(null), NowDt = datetime()");
+        var row = ExecuteAndGetSingleRow(kustoDatabase, "print NullDt = datetime(null)");
 
         Assert.That(row["NullDt"], Is.Null);
-        Assert.That(row["NowDt"], Is.InstanceOf<DateTime>());
+        NeonTestUtils.ExecuteAndExpectError(kustoDatabase, "print NullDt = datetime(null), NowDt = datetime()");
     }
 
     #endregion
@@ -52,7 +52,6 @@ public class NullableWhereComparisonAndLogicNeonTests
     [TestCase("print datetime(null) == datetime(null)", null)]
     [TestCase("print timespan(null) == timespan(null)", null)]
     [TestCase("print guid(null) == guid(null)", null)]
-    [TestCase("print dynamic(null) == dynamic(null)", null)]
     [TestCase("print int(null) == long(null)", null)]
     [TestCase("print int(null) == real(null)", null)]
     [Description("Kusto equality of two null values returns bool(null), not true")]
@@ -69,11 +68,18 @@ public class NullableWhereComparisonAndLogicNeonTests
     [TestCase("print datetime(null) != datetime(null)", null)]
     [TestCase("print timespan(null) != timespan(null)", null)]
     [TestCase("print guid(null) != guid(null)", null)]
-    [TestCase("print dynamic(null) != dynamic(null)", null)]
     [Description("Kusto inequality of two null values returns bool(null), not false")]
     public void Inequality_NullNotEqualsNull_ReturnsNull(string query, bool? expected)
     {
         AssertPrintBool(query, expected);
+    }
+
+    [TestCase("print dynamic(null) == dynamic(null)")]
+    [TestCase("print dynamic(null) != dynamic(null)")]
+    [Description("Kusto rejects == and != between two dynamic operands, even dynamic(null) (SEM0001: Cannot compare dynamic values without explicit cast)")]
+    public void EqualityAndInequality_DynamicNullOperands_AreRejected(string query)
+    {
+        NeonTestUtils.ExecuteAndExpectError(new KustoDatabase(), query);
     }
 
     [TestCase("print int(null) == 0", false)]
