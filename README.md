@@ -73,15 +73,38 @@ named `Products` with that same key:
 }
 ```
 
-Use the executable for your platform and preferably absolute data paths; the
-client controls the working directory. Call the single tool, `query`, with
-`{"query":"Input | join kind=inner (Products) on Sku"}`. The server loads all
-tables once before listening; each call runs against that same in-memory
-database, with query-local `let` bindings. Results contain the same JSON
-envelope as one-shot mode, as both structured content and text. KQL errors
-set `isError` without ending the session. Stdout carries only MCP messages;
-startup and query outcome logs go to stderr without logging KQL or rows.
-Close stdin or press Ctrl+C to stop. No HTTP listener or Azure credentials are used.
+The server can start empty (`--mcp-server`) or preload tables as above. Three
+tools share one in-memory database for the lifetime of the process:
+
+- `add_table_from_json` takes exactly one of `json` (a table-definition object
+  or serialized JSON text) and `jsonPath`. The definition supplies the table's `Name`.
+- `add_table_from_csv` takes a `tableName` and exactly one of `csv` (text with
+  a header) and `csvPath`.
+- `query` takes a KQL string named `query`. It can join new and preloaded tables;
+  `let` bindings still last for only one query.
+
+For example, send these `tools/call` parameters in order to an empty server:
+
+```json
+{"name":"add_table_from_json","arguments":{"json":{"Name":"Products","Columns":[{"Name":"Sku","Type":"string"},{"Name":"Price","Type":"int"}],"Rows":[{"Sku":"tea","Price":7}]}}}
+```
+```json
+{"name":"add_table_from_csv","arguments":{"tableName":"Orders","csv":"Sku,Units\ntea,3"}}
+```
+```json
+{"name":"query","arguments":{"query":"Orders | join kind=inner (Products) on Sku | project Sku, Total=Units*Price"}}
+```
+
+The join returns `["tea",21]`. A successful import returns the new name in
+`results.tableName`. Duplicate names and invalid input are tool errors: nothing
+is replaced, and the session stays open. Files are read once **by the server**,
+relative to its working directory unless the path is absolute. Only connect
+trusted clients: they can request imports from paths readable by that process.
+
+Responses include both structured content and text. Query results use the same
+JSON envelope as one-shot mode. Stdout is protocol-only; stderr logs outcomes
+without KQL or row data. Close stdin or press Ctrl+C to stop; all tables are
+discarded. No HTTP listener or Azure credentials are used.
 
 ## Build and test
 
@@ -125,8 +148,9 @@ pwsh -File test-cli.ps1 -Binary ./artifacts/native/kustoplayground
 Use `-r win-x64` and `kustoplayground.exe` on Windows, or `-r osx-arm64` on
 Apple Silicon. CI builds each target on its native runner. The smoke test copies
 only the executable into an empty directory and checks help, JSON and CSV
-queries, a gap-filled series, and a real MCP stdio session: discovery, a
-three-table join, reuse after a query error, and clean shutdown on EOF.
+queries, a gap-filled series, and a real MCP stdio session: tool discovery,
+joins across preloaded and newly imported tables after source files are removed,
+recovery from query and duplicate-name errors, and clean shutdown on EOF.
 
 ## Deployment
 

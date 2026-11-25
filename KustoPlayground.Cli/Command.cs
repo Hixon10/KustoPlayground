@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
-using KustoPlayground.Core;
 
 namespace KustoPlayground.Cli;
 
@@ -16,12 +14,14 @@ internal static class Command
         kustoplayground [-e] --mcp-server [table inputs...]
 
         Help: -h, --help, -help         Execute: -e, --execute, -execute
-        Choose exactly one of --query or --mcp-server. MCP serves the query tool
-        over stdin/stdout until stdin closes or Ctrl+C; logs go to stderr.
+        Choose exactly one of --query or --mcp-server. MCP serves query,
+        add_table_from_json, and add_table_from_csv over stdin/stdout until
+        stdin closes or Ctrl+C; logs go to stderr.
         Repeat or mix --json <table JSON>, --csv <CSV text>, --json-path <path>
         and --csv-path <path>. --json-file and --csv-file are aliases.
         JSON uses the playground's Name, Columns, and Rows format. CSV needs a
-        header; CSV tables are named Input, Input2, Input3, ... in argument order.
+        header. Startup CSVs are named Input, Input2, Input3, ... in argument order;
+        add_table_from_csv requires a tableName instead.
         Duplicate table names are errors. Paths may be absolute or relative.
         Omit table inputs for print, datatable, or other self-contained queries.
 
@@ -72,36 +72,29 @@ internal static class Command
         }
         if ((serve, query) is (true, not null) or (false, null)) return Fail("Specify exactly one of --query or --mcp-server.");
 
-        var database = new KustoDatabase();
-        var names = new HashSet<string>(StringComparer.Ordinal);
+        var session = new LocalSession();
         int csvCount = 0;
-        try
+        foreach (var (option, value) in inputs)
         {
-            foreach (var (option, value) in inputs)
+            bool fromFile = option is not ("--json" or "--csv");
+            CliReply imported;
+            if (option is "--json" or "--json-path" or "--json-file")
+                imported = await session.AddJsonAsync(value, fromFile, start).ConfigureAwait(false);
+            else
             {
-                var data = option is "--json" or "--csv" ? value : await File.ReadAllTextAsync(value).ConfigureAwait(false);
-                Table table;
-                if (option is "--json" or "--json-path" or "--json-file") table = InputTable.FromJson(data);
-                else
-                {
-                    csvCount++;
-                    table = InputTable.FromCsv(data, csvCount == 1 ? "Input" : "Input" + csvCount.ToString(CultureInfo.InvariantCulture));
-                }
-                if (!names.Add(table.Name)) return Fail($"Duplicate table name: {table.Name}.");
-                database.AddTable(table);
+                csvCount++;
+                var name = csvCount == 1 ? "Input" : "Input" + csvCount.ToString(CultureInfo.InvariantCulture);
+                imported = await session.AddCsvAsync(name, value, fromFile, start).ConfigureAwait(false);
+            }
+            if (imported.IsError)
+            {
+                imported.WriteLine(error);
+                return 2;
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return Fail($"Cannot read input file: {ex.Message}");
-        }
-        catch (Exception ex) when (ex is ArgumentException or FormatException or JsonException or KeyNotFoundException or NotSupportedException or OverflowException)
-        {
-            return Fail($"Invalid table input: {ex.Message}");
-        }
 
-        if (query is null) return await QueryServer.RunAsync(database, input, output, error).ConfigureAwait(false);
-        var reply = LocalQuery.Execute(database, query, start);
+        if (query is null) return await QueryServer.RunAsync(session, input, output, error).ConfigureAwait(false);
+        var reply = session.Execute(query, start);
         reply.WriteLine(reply.IsError ? error : output);
         return reply.IsError ? 1 : 0;
     }

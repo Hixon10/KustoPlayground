@@ -6,6 +6,7 @@ $binaryPath = (Resolve-Path -LiteralPath $Binary).Path
 $work = [IO.Directory]::CreateTempSubdirectory('kustoplayground-mcp-')
 $lookup = Join-Path $work.FullName 'city lookup.json'
 $bonus = Join-Path $work.FullName 'bonus points.csv'
+$units = Join-Path $work.FullName 'live units.csv'
 $process = [Diagnostics.Process]::new()
 $started = $false
 $timeout = [TimeSpan]::FromSeconds(30)
@@ -47,8 +48,9 @@ try {
     if ($hello.protocolVersion -cne '2025-11-25' -or !$hello.capabilities.Contains('tools')) { throw 'MCP tool negotiation failed.' }
     Send-Frame @{ jsonrpc = '2.0'; method = 'notifications/initialized' }
     $list = Invoke-Rpc 2 'tools/list' @{}
-    if ($list.tools.Count -ne 1 -or $list.tools[0].name -cne 'query' -or $list.tools[0].inputSchema.required -notcontains 'query') {
-        throw 'Expected exactly one tool, query, with a required query argument.'
+    if ($list.tools.Count -ne 3 -or $list.tools.name -cnotcontains 'query' -or
+        $list.tools.name -cnotcontains 'add_table_from_json' -or $list.tools.name -cnotcontains 'add_table_from_csv') {
+        throw 'Expected the query, add_table_from_json, and add_table_from_csv tools.'
     }
 
     # Later requests must use the loaded database even after its source files disappear.
@@ -64,6 +66,21 @@ try {
     $payload = $again.content[0].text | ConvertFrom-Json -AsHashtable
     if ($again.isError -or $payload.status -ne 200 -or $payload.results.items[1][0] -ne 1) { throw 'Second query lost the preloaded table.' }
 
+    $prices = @{ Name = 'Prices'; Columns = @(@{ Name = 'City'; Type = 'string' }, @{ Name = 'Price'; Type = 'int' }); Rows = @(@{ City = 'Lima'; Price = 4 }) }
+    $added = Invoke-Rpc 6 'tools/call' @{ name = 'add_table_from_json'; arguments = @{ json = $prices } }
+    if ($added.isError -or $added.structuredContent.results.tableName -cne 'Prices') { throw 'Live JSON object import failed.' }
+    [IO.File]::WriteAllText($units, "City,Units`nLima,2")
+    $added = Invoke-Rpc 7 'tools/call' @{ name = 'add_table_from_csv'; arguments = @{ tableName = 'UnitsByCity'; csvPath = 'live units.csv' } }
+    if ($added.isError -or $added.structuredContent.results.tableName -cne 'UnitsByCity') { throw 'Live CSV file import failed.' }
+    [IO.File]::Delete($units)
+
+    $duplicate = Invoke-Rpc 8 'tools/call' @{ name = 'add_table_from_csv'; arguments = @{ tableName = 'Input'; csv = "City,Score`nLima,0" } }
+    if (!$duplicate.isError -or $duplicate.structuredContent.message -notmatch 'Duplicate table name: Input') { throw 'Live import must not replace a startup table.' }
+    $kql = 'Input | join kind=inner (Prices) on City | join kind=inner (UnitsByCity) on City | project City, Total=Score+Price*Units'
+    $liveJoin = Invoke-Rpc 9 'tools/call' @{ name = 'query'; arguments = @{ query = $kql } }
+    $items = $liveJoin.structuredContent.results.items
+    if ($liveJoin.isError -or $items.Count -ne 2 -or ($items[1] -join ',') -cne 'Lima,17') { throw 'Join of live and preloaded tables failed.' }
+
     $process.StandardInput.Close()
     $tail = $process.StandardOutput.ReadToEndAsync()
     if (!$process.WaitForExit([int]$timeout.TotalMilliseconds)) { throw 'MCP server did not stop on stdin EOF.' }
@@ -75,5 +92,6 @@ try {
     $process.Dispose()
     [IO.File]::Delete($lookup)
     [IO.File]::Delete($bonus)
+    [IO.File]::Delete($units)
     [IO.Directory]::Delete($work.FullName)
 }

@@ -13,14 +13,11 @@ internal static class JsonOutput
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
     });
 
-    internal static QueryReply Success(ExecutionResult result, long start)
+    internal static CliReply Success(ExecutionResult result, long start)
     {
         // Only write stdout after all cells serialize, so an unsupported value cannot leave partial JSON.
         var buffer = new ArrayBufferWriter<byte>();
-        using var writer = new Utf8JsonWriter(buffer);
-        writer.WriteStartObject();
-        writer.WriteNumber("status", 200);
-        writer.WriteString("message", "Success");
+        using var writer = Start(buffer, 200, "Success");
         writer.WriteStartObject("results");
         writer.WriteStartArray("items");
         writer.WriteStartObject();
@@ -35,17 +32,33 @@ internal static class JsonOutput
         }
         writer.WriteEndArray();
         writer.WriteEndObject();
-        return new QueryReply(false, Finish(writer, buffer, start));
+        return new CliReply(false, Finish(writer, buffer, start));
     }
 
-    internal static QueryReply Error(string message, long start)
+    internal static CliReply TableAdded(string name, long start)
     {
         var buffer = new ArrayBufferWriter<byte>();
-        using var writer = new Utf8JsonWriter(buffer);
+        using var writer = Start(buffer, 200, "Success");
+        writer.WriteStartObject("results");
+        writer.WriteString("tableName", name);
+        writer.WriteEndObject();
+        return new CliReply(false, Finish(writer, buffer, start));
+    }
+
+    internal static CliReply Error(string message, long start)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using var writer = Start(buffer, 400, message);
+        return new CliReply(true, Finish(writer, buffer, start));
+    }
+
+    private static Utf8JsonWriter Start(ArrayBufferWriter<byte> buffer, int status, string message)
+    {
+        var writer = new Utf8JsonWriter(buffer);
         writer.WriteStartObject();
-        writer.WriteNumber("status", 400);
+        writer.WriteNumber("status", status);
         writer.WriteString("message", message);
-        return new QueryReply(true, Finish(writer, buffer, start));
+        return writer;
     }
 
     private static ReadOnlyMemory<byte> Finish(Utf8JsonWriter writer, ArrayBufferWriter<byte> buffer, long start)
