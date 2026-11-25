@@ -39,7 +39,7 @@ jobs:
           global-json-file: global.json
       - name: Publish native executable
         run: dotnet publish KustoPlayground.Cli -c Release -r ${{ matrix.rid }} -o artifacts/native -warnaserror
-      - name: Test the standalone binary
+      - name: Test the standalone CLI and MCP stdio session
         shell: pwsh
         run: ./test-cli.ps1 -Binary ./artifacts/native/${{ matrix.binary }}
       - name: Package the exact tested executable

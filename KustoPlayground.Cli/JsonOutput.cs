@@ -13,7 +13,7 @@ internal static class JsonOutput
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
     });
 
-    internal static void WriteResult(Stream output, ExecutionResult result, long start)
+    internal static QueryReply Success(ExecutionResult result, long start)
     {
         // Only write stdout after all cells serialize, so an unsupported value cannot leave partial JSON.
         var buffer = new ArrayBufferWriter<byte>();
@@ -35,25 +35,24 @@ internal static class JsonOutput
         }
         writer.WriteEndArray();
         writer.WriteEndObject();
-        Finish(output, writer, buffer, start);
+        return new QueryReply(false, Finish(writer, buffer, start));
     }
 
-    internal static void WriteError(Stream error, string message, long start)
+    internal static QueryReply Error(string message, long start)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using var writer = new Utf8JsonWriter(buffer);
         writer.WriteStartObject();
         writer.WriteNumber("status", 400);
         writer.WriteString("message", message);
-        Finish(error, writer, buffer, start);
+        return new QueryReply(true, Finish(writer, buffer, start));
     }
 
-    private static void Finish(Stream stream, Utf8JsonWriter writer, ArrayBufferWriter<byte> buffer, long start)
+    private static ReadOnlyMemory<byte> Finish(Utf8JsonWriter writer, ArrayBufferWriter<byte> buffer, long start)
     {
         writer.WriteNumber("duration", (long)Stopwatch.GetElapsedTime(start).TotalMilliseconds);
         writer.WriteEndObject();
         writer.Flush();
-        stream.Write(buffer.WrittenSpan);
-        stream.WriteByte((byte)'\n');
+        return buffer.WrittenMemory;
     }
 }

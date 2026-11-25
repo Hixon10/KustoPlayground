@@ -52,7 +52,8 @@ try {
             $chart.results.items[0].Y -cne 'long' -or ($chart.results.items[2] -join ',') -cne '1,5') {
             throw 'Terminal render did not preserve the ordinary tabular JSON result.'
         }
-        Write-Output 'Native CLI smoke passed: default help, inline and file inputs, make-series, and render.'
+        & (Join-Path $PSScriptRoot 'test-cli-mcp.ps1') -Binary $exe
+        Write-Output 'Native CLI smoke passed: help, inputs, make-series, render, and multi-table MCP over stdio.'
     } finally { Pop-Location }
 } finally {
     foreach ($path in @($exe, $jsonFile, $csvFile)) {

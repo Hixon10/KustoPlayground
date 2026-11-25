@@ -14,7 +14,7 @@ internal static class InputTable
         return TableBuilderFromJson.Build(table);
     }
 
-    internal static Table FromCsv(string csv)
+    internal static Table FromCsv(string csv, string tableName)
     {
         using var reader = new StringReader(csv);
         using var parser = new TextFieldParser(reader) { HasFieldsEnclosedInQuotes = true, TrimWhiteSpace = true };
@@ -35,7 +35,7 @@ internal static class InputTable
             }
             return TableBuilderFromCsv.Build(new TableDef
             {
-                Name = "Input", Columns = headers.Select(h => new ColumnDef { Name = h }).ToArray(), Rows = rows
+                Name = tableName, Columns = headers.Select(h => new ColumnDef { Name = h }).ToArray(), Rows = rows
             });
         }
         catch (MalformedLineException ex)

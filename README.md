@@ -30,16 +30,21 @@ Oslo,3
 Lima,9' --query 'Input | where Score > 5 | project City'
 ./kustoplayground -e --csv-file 'data/city scores.csv' --query 'Input | where Score > 5'
 ./kustoplayground -e --json-file scores.json --query 'Scores | count'
+./kustoplayground --csv-path orders.csv --json-path products.json --query 'Input | join kind=inner (Products) on Sku'
 ```
 
 `kustoplayground` with no arguments, `-h`, `--help`, and `-help` all print the
-same usage and exit successfully. Execution requires `--query`. Choose **at most
-one** of `--json`, `--csv` (inline text), `--json-file`, or `--csv-file`
-(a local path, absolute or relative to your current directory). File inputs use
-the same formats as inline inputs: JSON uses the browser's table definition;
-CSV has a header, supports quoted fields, and creates a table named
-`Input`. Each invocation starts a fresh database. Omit the input for queries
-such as `print` or `datatable`. The CLI supports the same KQL operators as the engine.
+same usage and exit successfully. Otherwise choose **exactly one** of
+`--query <KQL>` (one query) or `--mcp-server` (a persistent local database).
+The execute prefix (`-e`, `--execute`, `-execute`) is optional.
+
+Repeat or mix `--json`, `--csv` (inline text), `--json-path`, and `--csv-path`
+(absolute or relative files). The existing `--json-file` and `--csv-file` names
+are aliases. JSON uses the browser's table definition and its declared `Name`.
+CSV has a header and supports quoted fields. CSVs, both inline and files, are
+named `Input`, `Input2`, `Input3`, etc. in CSV argument order; intervening JSON
+tables do not affect numbering. Duplicate table names are errors, never
+overwrites. Omit all inputs for self-contained queries such as `print` or `datatable`.
 
 Success writes one JSON object to stdout; the first item is the ordered KQL
 schema (even for zero rows), followed by row arrays. For `print Answer=6*7`:
@@ -50,6 +55,33 @@ schema (even for zero rows), followed by row arrays. For `print Answer=6*7`:
 
 `duration` is elapsed milliseconds and varies. Failures write JSON to stderr:
 exit `2` for invalid commands or table input, `1` for query or output errors.
+
+### Local MCP server
+
+Configure a stdio MCP client to launch the native binary. For example, with
+`orders.csv` containing a `Sku` column and `products.json` declaring a table
+named `Products` with that same key:
+
+```json
+{
+  "mcpServers": {
+    "kusto-local": {
+      "command": "/absolute/path/to/kustoplayground",
+      "args": ["--mcp-server", "--csv-path", "/data/orders.csv", "--json-path", "/data/products.json"]
+    }
+  }
+}
+```
+
+Use the executable for your platform and preferably absolute data paths; the
+client controls the working directory. Call the single tool, `query`, with
+`{"query":"Input | join kind=inner (Products) on Sku"}`. The server loads all
+tables once before listening; each call runs against that same in-memory
+database, with query-local `let` bindings. Results contain the same JSON
+envelope as one-shot mode, as both structured content and text. KQL errors
+set `isError` without ending the session. Stdout carries only MCP messages;
+startup and query outcome logs go to stderr without logging KQL or rows.
+Close stdin or press Ctrl+C to stop. No HTTP listener or Azure credentials are used.
 
 ## Build and test
 
@@ -92,8 +124,9 @@ pwsh -File test-cli.ps1 -Binary ./artifacts/native/kustoplayground
 
 Use `-r win-x64` and `kustoplayground.exe` on Windows, or `-r osx-arm64` on
 Apple Silicon. CI builds each target on its native runner. The smoke test copies
-only the executable into an empty directory and checks help, JSON and CSV queries,
-and a gap-filled series.
+only the executable into an empty directory and checks help, JSON and CSV
+queries, a gap-filled series, and a real MCP stdio session: discovery, a
+three-table join, reuse after a query error, and clean shutdown on EOF.
 
 ## Deployment
 

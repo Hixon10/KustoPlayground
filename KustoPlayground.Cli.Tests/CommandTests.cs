@@ -9,7 +9,7 @@ public class CommandTests
     {
         using var output = new MemoryStream();
         using var error = new MemoryStream();
-        int exit = Command.Run(args, output, error);
+        int exit = Command.RunAsync(args, Stream.Null, output, error).GetAwaiter().GetResult();
         return (exit, Encoding.UTF8.GetString(output.ToArray()), Encoding.UTF8.GetString(error.ToArray()));
     }
 
@@ -95,6 +95,8 @@ public class CommandTests
 
     [TestCase("--json-file", """{"Name":"Scores","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":3}]}""", "Scores")]
     [TestCase("--csv-file", "N\r\n3", "Input")]
+    [TestCase("--json-path", """{"Name":"Scores","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":3}]}""", "Scores")]
+    [TestCase("--csv-path", "N\r\n3", "Input")]
     public void FileInputsProduceTheSameTypedResultAsInlineInputs(string option, string data, string table)
     {
         var path = Path.Combine(Path.GetTempPath(), $"cli input {Guid.NewGuid():N}");
@@ -110,6 +112,8 @@ public class CommandTests
 
     [TestCase("--json-file")]
     [TestCase("--csv-file")]
+    [TestCase("--json-path")]
+    [TestCase("--csv-path")]
     public void MissingFileIsAnInputError(string option)
     {
         var name = Guid.NewGuid().ToString("N");
@@ -120,19 +124,66 @@ public class CommandTests
         Assert.That(document.RootElement.GetProperty("message").GetString(), Does.Contain(name));
     }
 
+    [Test]
+    public void RepeatedMixedInputsCanAllParticipateInOneQuery()
+    {
+        const string product = """{"Name":"Products","Columns":[{"Name":"Sku","Type":"string"}],"Rows":[{"Sku":"tea"}]}""";
+        const string labels = """{"Name":"Labels","Columns":[{"Name":"Sku","Type":"string"},{"Name":"Label","Type":"string"}],"Rows":[{"Sku":"tea","Label":"Green tea"}]}""";
+        var items = Items("--json", product, "--csv", "Sku,Price\ntea,7", "--json", labels, "--csv", "Sku,Units\ntea,3",
+            "--query", "Products | join kind=inner (Input) on Sku | join kind=inner (Labels) on Sku | join kind=inner (Input2) on Sku | project Label, Total=Price*Units");
+        Assert.That(items.GetArrayLength(), Is.EqualTo(2));
+        Assert.That(items[1][0].GetString(), Is.EqualTo("Green tea"));
+        Assert.That(items[1][1].GetInt64(), Is.EqualTo(21));
+    }
+
+    [Test]
+    public void RepeatedFileInputsKeepJsonNamesAndNumberOnlyTheCsvInputs()
+    {
+        var dir = Directory.CreateTempSubdirectory("kusto-cli-tables-");
+        var first = Path.Combine(dir.FullName, "one.json");
+        var second = Path.Combine(dir.FullName, "two.json");
+        var csv = Path.Combine(dir.FullName, "values.csv");
+        try
+        {
+            File.WriteAllText(first, """{"Name":"First","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":1}]}""");
+            File.WriteAllText(second, """{"Name":"Second","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":2}]}""");
+            File.WriteAllText(csv, "N\n3");
+            var items = Items("--json-path", first, "--csv-path", csv, "--json-path", second, "--csv-path", csv,
+                "--csv", "N\n4", "--query", "union First, Input, Second, Input2, Input3 | summarize Total=sum(N)");
+            Assert.That(items[1][0].GetInt64(), Is.EqualTo(13));
+        }
+        finally
+        {
+            File.Delete(first);
+            File.Delete(second);
+            File.Delete(csv);
+            dir.Delete();
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DuplicateNamesNeverOverwriteTables(bool jsonFirst)
+    {
+        const string data = """{"Name":"Input","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":9}]}""";
+        string[] sources = jsonFirst ? ["--json", data, "--csv", "N\n2"] : ["--csv", "N\n2", "--json", data];
+        var (exit, output, error) = Run(["--mcp-server", .. sources]);
+        Assert.That(exit, Is.EqualTo(2));
+        Assert.That(output, Is.Empty);
+        Assert.That(error, Does.Contain("Duplicate table name: Input"));
+    }
+
     [TestCase(new[] { "-e" }, "--query")]
     [TestCase(new[] { "-e", "--query", " " }, "--query")]
     [TestCase(new[] { "--help", "--execute" }, "--help")]
     [TestCase(new[] { "-e", "--unknown", "x" }, "--unknown")]
     [TestCase(new[] { "-e", "--query", "print 1", "--query", "print 2" }, "Duplicate")]
     [TestCase(new[] { "-e", "--query", "--csv", "x" }, "--query")]
-    [TestCase(new[] { "-e", "--json", "{}", "--csv", "N\n2", "--query", "print 1" }, "mutually exclusive")]
-    [TestCase(new[] { "-e", "--json-file", "j", "--json", "{}", "--query", "print 1" }, "mutually exclusive")]
-    [TestCase(new[] { "-e", "--json-file", "j", "--csv", "N\n2", "--query", "print 1" }, "mutually exclusive")]
-    [TestCase(new[] { "-e", "--csv-file", "c", "--json", "{}", "--query", "print 1" }, "mutually exclusive")]
-    [TestCase(new[] { "-e", "--csv-file", "c", "--csv", "N\n2", "--query", "print 1" }, "mutually exclusive")]
-    [TestCase(new[] { "-e", "--csv-file", "c", "--json-file", "j", "--query", "print 1" }, "mutually exclusive")]
-    [TestCase(new[] { "-e", "--csv-file", "c", "--csv-file", "d", "--query", "print 1" }, "Duplicate")]
+    [TestCase(new[] { "--mcp-server", "--query", "print 1", "--json-path", "missing.json" }, "exactly one")]
+    [TestCase(new[] { "-e", "--query", "print 1", "--mcp-server" }, "exactly one")]
+    [TestCase(new[] { "--csv-path", "missing.csv" }, "exactly one")]
+    [TestCase(new[] { "--mcp-server", "--mcp-server" }, "Duplicate")]
+    [TestCase(new[] { "--csv-path", "--mcp-server" }, "Missing value for --csv-path")]
     [TestCase(new[] { "-e", "--json-file", "--query", "print 1" }, "Missing value for --json-file")]
     [TestCase(new[] { "-e", "--json", "{", "--query", "print 1" }, "Invalid table")]
     [TestCase(new[] { "-e", "--csv", "x,y\n1", "--query", "print 1" }, "fields")]
