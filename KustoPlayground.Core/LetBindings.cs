@@ -11,7 +11,7 @@ internal sealed partial class QueryEvaluator
 {
     private abstract record Binding;
     private sealed record ValueBinding(Func<object?> Evaluate) : Binding;
-    private sealed record TableBinding(Func<IEnumerable<QueryRow>> Evaluate) : Binding;
+    private sealed record TableBinding(Func<IEnumerable<QueryRow>> Evaluate, Func<IReadOnlyList<ColumnSymbol>>? Columns) : Binding;
     private sealed record FunctionBinding(FunctionDeclaration Declaration, QueryEvaluator Closure) : Binding;
 
     private QueryEvaluator(QueryEvaluator parent, ImmutableDictionary<string, Binding> bindings, bool functionCall = false)
@@ -47,7 +47,7 @@ internal sealed partial class QueryEvaluator
             Binding binding = let.Expression switch
             {
                 FunctionDeclaration declaration => new FunctionBinding(declaration, closure),
-                { ResultType: TableSymbol } table => new TableBinding(() => closure.ExecuteExpression(table)),
+                { ResultType: TableSymbol } table => closure.BindTable(table),
                 var expr => new ValueBinding(() => closure.EvalOperand(expr, new QueryRow()))
             };
             scope = new QueryEvaluator(scope, scope._bindings.SetItem(let.Name.SimpleName, binding));
@@ -60,11 +60,7 @@ internal sealed partial class QueryEvaluator
         if (_bindings.TryGetValue(name, out var binding))
         {
             if (binding is TableBinding table) return table.Evaluate();
-            if (binding is FunctionBinding udf)
-            {
-                var (scope, body) = EnterFunction(udf, reference, [], e => EvalOperand(e, new QueryRow()));
-                return scope.ExecuteExpression(body);
-            }
+            if (binding is FunctionBinding udf) return CallTableFunction(udf, reference, []);
             throw new ArgumentException($"{name} is not a table.");
         }
         if (!_tables.TryGetValue(name, out var stored)) throw new ArgumentException($"Unknown table: {name}");
@@ -77,9 +73,20 @@ internal sealed partial class QueryEvaluator
     {
         if (_bindings.GetValueOrDefault(call.Name.SimpleName) is not FunctionBinding udf)
             throw new NotSupportedException($"Unknown tabular function: {call.Name.SimpleName}");
-        var (scope, body) = EnterFunction(udf, call, call.ArgumentList.Expressions.Select(e => e.Element),
-            e => EvalOperand(e, new QueryRow()), piped);
-        return scope.ExecuteExpression(body);
+        return CallTableFunction(udf, call, call.ArgumentList.Expressions.Select(e => e.Element), piped);
+    }
+
+    private TableBinding BindTable(Expression value) => new(() => ExecuteExpression(value), () => ColumnsOf(value));
+
+    private IEnumerable<QueryRow> CallTableFunction(FunctionBinding udf, Expression reference,
+        IEnumerable<Expression> arguments, IEnumerable<QueryRow>? piped = null)
+    {
+        var (scope, body) = EnterFunction(udf, reference, arguments, e => EvalOperand(e, new QueryRow()), piped);
+        var rows = scope.ExecuteExpression(body);
+        // Inferred bag slots belong to this invocation's argument bindings, not the declaration.
+        if (reference.ResultType is TableSymbol { IsOpen: true })
+            _discoveredSchemas[reference.Parent is InvokeOperator invoke ? invoke : reference] = scope.ColumnsOf(body);
+        return rows;
     }
 
     private (QueryEvaluator Scope, Expression Body) EnterFunction(FunctionBinding udf, Expression reference,
@@ -92,7 +99,8 @@ internal sealed partial class QueryEvaluator
         if (piped is not null)
         {
             if (parameters.Length == 0) throw new ArgumentException("invoke requires a tabular first parameter.");
-            bindings[parameters[0].NameAndType.Name.SimpleName] = new TableBinding(() => piped);
+            bindings[parameters[0].NameAndType.Name.SimpleName] = new TableBinding(() => piped,
+                reference.Parent is InvokeOperator { Parent: PipeExpression pipe } ? () => ColumnsOf(pipe.Expression) : null);
             supplied[next++] = true;
         }
         foreach (var argument in arguments)
@@ -104,7 +112,7 @@ internal sealed partial class QueryEvaluator
             var declaration = parameters[i].NameAndType;
             bindings[declaration.Name.SimpleName] = declaration.Type is PrimitiveTypeExpression
                 ? BindValue(evaluate(value), declaration.Type)
-                : new TableBinding(() => ExecuteExpression(value));
+                : BindTable(value);
             supplied[i] = true;
             while (next < supplied.Length && supplied[next]) next++;
         }

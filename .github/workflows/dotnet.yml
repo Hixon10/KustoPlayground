@@ -14,6 +14,58 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  native-smoke:
+    name: Native AOT / ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, rid: linux-x64, binary: kustoplayground }
+          - { runner: windows-2025, rid: win-x64, binary: kustoplayground.exe }
+          - { runner: macos-15, rid: osx-arm64, binary: kustoplayground }
+    outputs:
+      linux-x64: ${{ steps.package.outputs['linux-x64'] }}
+      win-x64: ${{ steps.package.outputs['win-x64'] }}
+      osx-arm64: ${{ steps.package.outputs['osx-arm64'] }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          global-json-file: global.json
+      - name: Publish native executable
+        run: dotnet publish KustoPlayground.Cli -c Release -r ${{ matrix.rid }} -o artifacts/native -warnaserror
+      - name: Test the standalone binary
+        shell: pwsh
+        run: ./test-cli.ps1 -Binary ./artifacts/native/${{ matrix.binary }}
+      - name: Package the exact tested executable
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $name = 'kustoplayground-${{ matrix.rid }}'
+          $null = New-Item artifacts/cli-packages -ItemType Directory -Force
+          if ($IsWindows) {
+            $archive = "artifacts/cli-packages/$name.zip"
+            Compress-Archive -LiteralPath 'artifacts/native/${{ matrix.binary }}' -DestinationPath $archive
+          } else {
+            $archive = "artifacts/cli-packages/$name.tar.gz"
+            tar -czf $archive -C artifacts/native ${{ matrix.binary }}
+          }
+          "${{ matrix.rid }}=$((Get-FileHash $archive -Algorithm SHA256).Hash)" >> $env:GITHUB_OUTPUT
+      # Job handoff only. Public downloads are created after all three RIDs and Chromium pass.
+      - name: Stage tested archive
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/cli-packages
+          key: cli-${{ github.run_id }}-${{ matrix.rid }}-${{ github.run_attempt }}
+          enableCrossOsArchive: true
+
   build-and-test:
     runs-on: ubuntu-26.04
 
@@ -36,8 +88,11 @@ jobs:
       - name: Build and lint
         run: dotnet build KustoPlayground.sln -c Release -warnaserror
 
-      - name: Run unit tests
+      - name: Run engine unit tests
         run: dotnet test KustoPlayground.Core.Tests -c Release --no-build
+
+      - name: Run CLI unit tests
+        run: dotnet test KustoPlayground.Cli.Tests -c Release --no-build
 
       - name: Publish and smoke-test the static site in Chromium
         run: pwsh -NoProfile -File test-browser.ps1 -WithDeps
@@ -48,9 +103,41 @@ jobs:
           path: artifacts/site/wwwroot
           include-hidden-files: true
 
+  publish-cli:
+    name: Publish CLI / ${{ matrix.rid }}
+    needs: [build-and-test, native-smoke]
+    runs-on: ubuntu-26.04
+    strategy:
+      matrix:
+        rid: [linux-x64, win-x64, osx-arm64]
+    steps:
+      - name: Retrieve tested archive
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/cli-packages
+          key: cli-${{ github.run_id }}-${{ matrix.rid }}-${{ github.run_attempt }}
+          restore-keys: cli-${{ github.run_id }}-${{ matrix.rid }}-
+          enableCrossOsArchive: true
+          fail-on-cache-miss: true
+      - name: Verify the tested archive was restored
+        shell: pwsh
+        env:
+          EXPECTED: ${{ needs.native-smoke.outputs[matrix.rid] }}
+        run: |
+          $files = @(Get-ChildItem artifacts/cli-packages -File)
+          if ($files.Count -ne 1 -or (Get-FileHash $files[0].FullName).Hash -cne $env:EXPECTED) {
+            throw 'Tested archive checksum mismatch.'
+          }
+      - name: Publish CLI download
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: artifacts/cli-packages/kustoplayground-${{ matrix.rid }}.*
+          archive: false
+          if-no-files-found: error
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build-and-test
+    needs: [build-and-test, native-smoke, publish-cli]
     runs-on: ubuntu-26.04
     permissions:
       pages: write

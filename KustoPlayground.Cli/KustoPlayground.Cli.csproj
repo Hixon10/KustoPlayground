@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <AssemblyName>kustoplayground</AssemblyName>
+        <RootNamespace>KustoPlayground.Cli</RootNamespace>
+        <TargetFramework>net11.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <PublishAot>true</PublishAot>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <AnalysisMode>All</AnalysisMode>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\KustoPlayground.Core\KustoPlayground.Core.csproj" />
+        <InternalsVisibleTo Include="KustoPlayground.Cli.Tests" />
+    </ItemGroup>
+</Project>

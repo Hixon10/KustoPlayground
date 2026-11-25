@@ -8,6 +8,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KustoPlayground.UI", "Kusto
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KustoPlayground.Core.Tests", "KustoPlayground.Core.Tests\KustoPlayground.Core.Tests.csproj", "{2CE3B5E9-1976-464D-AEB2-5B6879667BD5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KustoPlayground.Cli", "KustoPlayground.Cli\KustoPlayground.Cli.csproj", "{ED5EA54C-9DAF-4274-9C48-AF8C2999BB87}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KustoPlayground.Cli.Tests", "KustoPlayground.Cli.Tests\KustoPlayground.Cli.Tests.csproj", "{0BD8AED0-C281-4E3A-A1FB-82181A3A6520}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,6 +30,14 @@ Global
 		{2CE3B5E9-1976-464D-AEB2-5B6879667BD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2CE3B5E9-1976-464D-AEB2-5B6879667BD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2CE3B5E9-1976-464D-AEB2-5B6879667BD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED5EA54C-9DAF-4274-9C48-AF8C2999BB87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED5EA54C-9DAF-4274-9C48-AF8C2999BB87}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED5EA54C-9DAF-4274-9C48-AF8C2999BB87}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED5EA54C-9DAF-4274-9C48-AF8C2999BB87}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0BD8AED0-C281-4E3A-A1FB-82181A3A6520}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BD8AED0-C281-4E3A-A1FB-82181A3A6520}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BD8AED0-C281-4E3A-A1FB-82181A3A6520}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BD8AED0-C281-4E3A-A1FB-82181A3A6520}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

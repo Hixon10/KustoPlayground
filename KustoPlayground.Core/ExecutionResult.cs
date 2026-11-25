@@ -27,11 +27,18 @@ namespace KustoPlayground.Core;
 [JsonSerializable(typeof(ulong))]
 public partial class ExecutionResultJsonContext : JsonSerializerContext;
 
+/// <summary>A result column, in projection order, with its KQL type name.</summary>
+public sealed record ResultColumn(string Name, string Type);
+
 /// <summary>
 /// Represents the result of a query execution.
 /// </summary>
 public sealed class ExecutionResult
 {
+    /// <summary>Ordered schema when requested, even if the successful query returns no rows.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ResultColumn>? Columns { get; init; }
+
     /// <summary>Formats a scalar or dynamic value for display, using the same conversions as the query engine.</summary>
     public static string FormatValue(object? value) => ScalarFunctions.ToText(value);
 

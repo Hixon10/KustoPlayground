@@ -104,14 +104,16 @@ internal sealed partial class QueryEvaluator
 
     private IReadOnlyList<ColumnSymbol> ColumnsOf(Expression expression)
     {
+        if (_discoveredSchemas.TryGetValue(expression is PipeExpression p ? p.Operator : expression, out var actual))
+            return actual;
         var table = (TableSymbol)expression.ResultType;
         var declared = table.Columns;
-        if (expression is NameReference { ReferencedSymbol: VariableSymbol { Source: Expression source } } && table.IsOpen)
-            return ColumnsOf(source);
+        if (table.IsOpen && expression is NameReference name &&
+            _bindings.GetValueOrDefault(name.SimpleName) is TableBinding { Columns: { } columnsOfBinding })
+            return columnsOfBinding();
         if (expression is ParenthesizedExpression parens) return ColumnsOf(parens.Expression);
         if (expression is MaterializeExpression materialize) return ColumnsOf(materialize.Expression);
         if (expression is not PipeExpression pipe) return declared;
-        if (_discoveredSchemas.TryGetValue(pipe.Operator, out var actual)) return actual;
         if (!table.IsOpen) return declared;
 
         var input = ColumnsOf(pipe.Expression);

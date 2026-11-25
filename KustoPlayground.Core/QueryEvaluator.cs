@@ -14,7 +14,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
     private readonly ImmutableDictionary<string, Binding> _bindings = ImmutableDictionary<string, Binding>.Empty;
     private readonly Dictionary<Expression, object?> _cache = [];
 
-    internal ExecutionResult Execute(string query)
+    internal ExecutionResult Execute(string query, bool includeSchema)
     {
         var code = Analyze(KustoCode.Parse(query));
         var errors = code.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error && !IsServiceCompatible(code, d))
@@ -28,7 +28,13 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         }
         var scope = BindStatements(block.Statements.Take(block.Statements.Count - 1).Select(s => s.Element));
         scope.ValidateConstantArguments(final.Expression);
-        return new ExecutionResult { ResultRows = scope.ExecuteExpression(final.Expression).Select(r => r.AsReadOnly()).ToList() };
+        var rows = scope.ExecuteExpression(final.Expression).Select(r => r.AsReadOnly()).ToList();
+        return new ExecutionResult
+        {
+            ResultRows = rows,
+            Columns = includeSchema ? scope.DescribeColumns(final.Expression,
+                block.GetFirstDescendant<GetSchemaOperator>(op => op.KindParameter is null)).ToArray() : null
+        };
     }
 
     private static bool IsServiceCompatible(KustoCode code, Diagnostic diagnostic)

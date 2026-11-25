@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net11.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="NUnit" />
+        <PackageReference Include="NUnit.Analyzers" PrivateAssets="all" />
+        <PackageReference Include="NUnit3TestAdapter" PrivateAssets="all" />
+        <Using Include="NUnit.Framework" />
+        <ProjectReference Include="..\KustoPlayground.Cli\KustoPlayground.Cli.csproj" />
+    </ItemGroup>
+</Project>

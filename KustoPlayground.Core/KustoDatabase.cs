@@ -14,14 +14,16 @@ public class KustoDatabase
         _tables[table.Name] = table;
     }
 
+    public ExecutionResult ExecuteQuery(string query) => ExecuteQuery(query, includeSchema: false);
+
     [SuppressMessage("Design", "CA1031:Do not catch general exception types",
         Justification = "The public query boundary returns execution errors to the caller.")]
-    public ExecutionResult ExecuteQuery(string query)
+    public ExecutionResult ExecuteQuery(string query, bool includeSchema)
     {
         try
         {
             ArgumentException.ThrowIfNullOrEmpty(query);
-            return new QueryEvaluator(_tables).Execute(query);
+            return new QueryEvaluator(_tables).Execute(query, includeSchema);
         }
         catch (Exception ex)
         {

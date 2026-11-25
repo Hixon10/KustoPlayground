@@ -2,13 +2,48 @@
 
 **KustoPlayground** is a client-side playground for experimenting with [Kusto Query Language (KQL)](https://learn.microsoft.com/en-us/azure/data-explorer/kusto/query/).  
 
-It runs entirely in the browser using **WebAssembly + Blazor + C#**, with no server dependencies.
+Run the same in-memory engine in the **Blazor WebAssembly playground** or the
+**native command-line client**. Neither client connects to an Azure cluster.
 
 ## Features
 - Create an **in-memory Kusto database** directly in your browser from JSON, or CSV.
 - Write and run **KQL queries** interactively.
 - 100% client-side - no data leaves your machine.
 - Perfect for **learning, prototyping, and testing** queries quickly.
+
+## Native CLI
+
+Download the archive for your platform from a successful [.NET CI run](https://github.com/Hixon10/KustoPlayground/actions/workflows/dotnet.yml):
+`kustoplayground-linux-x64.tar.gz`, `kustoplayground-win-x64.zip`, or
+`kustoplayground-osx-arm64.tar.gz` (Apple Silicon). Extract it and run
+`./kustoplayground` (on Windows, `.\kustoplayground.exe`). Each contains one
+Native AOT executable: no .NET SDK, runtime installation, or sibling DLLs needed.
+The Linux binary targets glibc Linux (built on Ubuntu 24.04), not Alpine/musl.
+
+```sh
+./kustoplayground --help
+./kustoplayground -e --query 'print Answer=6*7'
+./kustoplayground --execute --json '{"Name":"Scores","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":7}]}' --query 'Scores | summarize Total=sum(N)'
+./kustoplayground -execute --csv 'City,Score
+Oslo,3
+Lima,9' --query 'Input | where Score > 5 | project City'
+```
+
+`-h`, `--help`, and `-help` print usage. Execution requires `--query`. Supply
+at most one input **as inline text**: JSON uses the same table definition as the
+browser; CSV has a header, supports quoted fields, and creates a table named
+`Input`. Each invocation starts a fresh database. Omit the input for queries
+such as `print` or `datatable`. The CLI supports the same KQL operators as the engine.
+
+Success writes one JSON object to stdout; the first item is the ordered KQL
+schema (even for zero rows), followed by row arrays. For `print Answer=6*7`:
+
+```json
+{"status":200,"message":"Success","results":{"items":[{"Answer":"long"},[42]]},"duration":0}
+```
+
+`duration` is elapsed milliseconds and varies. Failures write JSON to stderr:
+exit `2` for invalid commands or table input, `1` for query or output errors.
 
 ## Build and test
 
@@ -17,6 +52,7 @@ need a browser or a WebAssembly workload:
 
 ```sh
 dotnet test KustoPlayground.Core.Tests -c Release
+dotnet test KustoPlayground.Cli.Tests -c Release
 ```
 
 To run the same checks as CI on Windows, macOS, or Linux, install the WebAssembly
@@ -38,11 +74,27 @@ results, including grouped aggregation, typed parsing, schema inspection,
 missing values, and expanding nested JSON and joining it to a lookup table.
 No development server or external service is involved.
 
+To build the CLI locally, install the [Native AOT build prerequisites](https://learn.microsoft.com/dotnet/core/deploying/native-aot/#prerequisites)
+for your OS (C++ build tools on Windows, Clang and zlib development files on
+Linux, Xcode Command Line Tools on macOS). Publish for the current host and
+smoke-test the **executable**, not `dotnet run`. For example, on x64 Linux:
+
+```sh
+dotnet publish KustoPlayground.Cli -c Release -r linux-x64 -o artifacts/native -warnaserror
+pwsh -File test-cli.ps1 -Binary ./artifacts/native/kustoplayground
+```
+
+Use `-r win-x64` and `kustoplayground.exe` on Windows, or `-r osx-arm64` on
+Apple Silicon. CI builds each target on its native runner. The smoke test copies
+only the executable into an empty directory and checks help and two query results.
+
 ## Deployment
 
-CI packages `artifacts/site/wwwroot` as the `github-pages` artifact only after
-the unit tests, analyzers, and Chromium tests pass. On a push to `main`, the
-deploy job publishes that exact artifact to
+CI makes the three CLI archives downloadable only after the unit tests,
+analyzers, published-site Chromium tests, and **all three native executable
+smoke tests** pass. It transfers the exact tested archives between jobs and
+checks their SHA-256 hashes before upload. On a push to `main`, the deploy job
+then publishes the browser-tested `github-pages` artifact to
 [Kusto Playground](https://hixon10.github.io/KustoPlayground/) without rebuilding
 it. Pull requests run the checks but cannot deploy.
 
