@@ -2,6 +2,7 @@
 
 @using System.Text.Json
 @using KustoPlayground.Core
+@using KustoPlayground.UI.Components
 @inject KustoDatabase KustoDatabase
 
 <h3>Add Kusto table</h3>
@@ -61,24 +62,33 @@
 <br/>
 <button @onclick="ExecuteKusto">Process Kusto Query</button>
 
-@if (Results.Any())
+@if (QueryResult is { Visualization: not null } chart)
+{
+    <QueryLineChart Result="chart" />
+}
+
+@if (QueryResult?.ResultRows is { } rows)
 {
     <h4>Results</h4>
     <ul aria-label="Query results">
-        @foreach (var line in Results)
+        @if (rows.Count == 0)
         {
-            <li>@line</li>
+            <li>Empty result</li>
+        }
+        @foreach (var row in rows)
+        {
+            <li>@string.Join(", ", row.Select(kv => $"{kv.Key}={ExecutionResult.FormatValue(kv.Value)}"))</li>
         }
     </ul>
 }
 
-@if (Errors.Any())
+@if (QueryResult?.ExecutionErrors is { Count: > 0 } errors)
 {
     <h4 style="color: red;">Errors</h4>
     <ul>
-        @foreach (var line in Errors)
+        @foreach (var error in errors)
         {
-            <li>@line</li>
+            <li>@error.Code -- @error.Description</li>
         }
     </ul>
 }
@@ -136,9 +146,7 @@
     | take 10
 ";
 
-    private List<string> Results { get; set; } = new();
-
-    private List<string> Errors { get; set; } = new();
+    private ExecutionResult? QueryResult { get; set; }
 
     // 1. Handle file selection
     private void LoadCsvFile(InputFileChangeEventArgs e)
@@ -205,8 +213,7 @@
             KustoDatabase.AddTable(newTable);
             CsvAdded = true;
             JsonAdded = false;
-            Results = new List<string>();
-            Errors = new List<string>();
+            QueryResult = null;
         }
         catch (Exception ex)
         {
@@ -236,8 +243,7 @@
             KustoDatabase.AddTable(table);
             JsonAdded = true;
             CsvAdded = false;
-            Results = new List<string>();
-            Errors = new List<string>();
+            QueryResult = null;
         }
         catch (Exception ex)
         {
@@ -249,42 +255,9 @@
 
     private void ExecuteKusto()
     {
-        Results = new List<string>();
-        Errors = new List<string>();
-
         JsonAdded = false;
         CsvAdded = false;
-
-        try
-        {
-            var executeResults = KustoDatabase.ExecuteQuery(KqlQuery);
-
-            if (executeResults.ResultRows != null)
-            {
-                Results = executeResults.ResultRows
-                    .Select(row =>
-                        string.Join(", ", row.Select(kv => $"{kv.Key}={ExecutionResult.FormatValue(kv.Value)}")))
-                    .ToList();
-
-                if (Results.Count == 0)
-                {
-                    Results.Add("Empty result");
-                }
-            }
-
-            if (executeResults.ExecutionErrors != null)
-            {
-                Errors = executeResults.ExecutionErrors
-                    .Select(error => $"{error.Code} -- {error.Description}")
-                    .ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Unhandled error during ExecuteKusto()");
-            Console.WriteLine(ex.ToString());
-            throw;
-        }
+        QueryResult = KustoDatabase.ExecuteQuery(KqlQuery, includeSchema: true);
     }
 
 }

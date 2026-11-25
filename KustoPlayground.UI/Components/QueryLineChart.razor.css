@@ -1,0 +1,17 @@
+.query-chart {
+    max-width: 46rem;
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid var(--cp-border);
+    border-radius: 16px;
+    background: var(--cp-surface);
+    color: var(--cp-text);
+    font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+figcaption { font-weight: 600; overflow-wrap: anywhere; }
+svg { display: block; width: 100%; }
+.axes { fill: none; stroke: var(--cp-border-strong); }
+.labels { fill: var(--cp-text-muted); font-size: 11px; }
+.series { fill: none; stroke: var(--cp-accent); stroke-width: 2; stroke-linejoin: round; }
+circle { fill: var(--cp-accent); }

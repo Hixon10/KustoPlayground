@@ -19,20 +19,30 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         var code = Analyze(KustoCode.Parse(query));
         var errors = code.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error && !IsServiceCompatible(code, d))
             .Select(d => new ExecutionError { Code = d.Code, Description = d.Message }).ToList();
-        if (errors.Count == 0) errors.AddRange(ValidateServiceSemantics(code));
         if (errors.Count != 0) return new ExecutionResult { ExecutionErrors = errors };
         if (code.Syntax is not QueryBlock block || block.Statements.Count == 0 ||
             block.Statements[^1].Element is not ExpressionStatement final)
         {
             throw new ArgumentException("A query must end with a tabular expression.", nameof(query));
         }
+        var data = final.Expression;
+        RenderOperator? render = null;
+        if (UnwrapParens(data) is PipeExpression { Operator: RenderOperator chart } pipe)
+        {
+            render = chart;
+            data = pipe.Expression;
+        }
+        errors.AddRange(ValidateServiceSemantics(code, render));
+        if (errors.Count != 0) return new ExecutionResult { ExecutionErrors = errors };
+
         var scope = BindStatements(block.Statements.Take(block.Statements.Count - 1).Select(s => s.Element));
-        scope.ValidateConstantArguments(final.Expression);
-        var rows = scope.ExecuteExpression(final.Expression).Select(r => r.AsReadOnly()).ToList();
+        scope.ValidateConstantArguments(data);
+        var rows = scope.ExecuteExpression(data).Select(r => r.AsReadOnly()).ToList();
         return new ExecutionResult
         {
             ResultRows = rows,
-            Columns = includeSchema ? scope.DescribeColumns(final.Expression,
+            Visualization = render?.ChartType.Text,
+            Columns = includeSchema ? scope.DescribeColumns(data,
                 block.GetFirstDescendant<GetSchemaOperator>(op => op.KindParameter is null)).ToArray() : null
         };
     }

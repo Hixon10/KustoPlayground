@@ -47,7 +47,12 @@ try {
             ($series.results.items[1][0] -join ',') -cne '2,0,7' -or ($series.results.items[1][1] -join ',') -cne '0,0.5,1') {
             throw 'make-series did not produce the expected real axis and gap-filled sums.'
         }
-        Write-Output 'Native CLI smoke passed: default help, inline and file inputs, and make-series.'
+        $chart = & $exe -e --query 'datatable(X:long,Y:long)[0,2,1,5] | render linechart' | ConvertFrom-Json -AsHashtable
+        if ($chart.status -ne 200 -or $chart.results.items.Count -ne 3 -or
+            $chart.results.items[0].Y -cne 'long' -or ($chart.results.items[2] -join ',') -cne '1,5') {
+            throw 'Terminal render did not preserve the ordinary tabular JSON result.'
+        }
+        Write-Output 'Native CLI smoke passed: default help, inline and file inputs, make-series, and render.'
     } finally { Pop-Location }
 } finally {
     foreach ($path in @($exe, $jsonFile, $csvFile)) {

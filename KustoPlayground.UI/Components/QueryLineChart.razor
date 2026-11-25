@@ -1,0 +1,24 @@
+@if (notice is not null)
+{
+    <p role="status">@notice</p>
+}
+else
+{
+    <figure class="query-chart">
+        <figcaption>@description</figcaption>
+        <svg viewBox="0 0 640 208" role="img" aria-label="@description">
+            <path class="axes" d="M80 16 V168 H624" />
+            <g class="labels">
+                <text x="74" y="20" text-anchor="end">@yHigh</text>
+                <text x="74" y="168" text-anchor="end">@yLow</text>
+                <text x="80" y="192">@xLow</text>
+                <text x="624" y="192" text-anchor="end">@xHigh</text>
+            </g>
+            <path class="series" d="@line" />
+            @foreach (var point in points)
+            {
+                <circle cx="@point.X" cy="@point.Y" r="3" />
+            }
+        </svg>
+    </figure>
+}

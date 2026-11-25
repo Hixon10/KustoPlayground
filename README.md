@@ -8,6 +8,7 @@ Run the same in-memory engine in the **Blazor WebAssembly playground** or the
 ## Features
 - Create an **in-memory Kusto database** directly in your browser from JSON, or CSV.
 - Write and run **KQL queries** interactively.
+- Draw a single-series line or time chart in the browser with [`render`](#charts).
 - 100% client-side - no data leaves your machine.
 - Perfect for **learning, prototyping, and testing** queries quickly.
 
@@ -133,6 +134,7 @@ copy or personal deployment token is needed.
 - [count](https://learn.microsoft.com/en-us/kusto/query/count-operator)
 - [summarize](https://learn.microsoft.com/en-us/kusto/query/summarize-operator)
 - [make-series](https://learn.microsoft.com/en-us/kusto/query/make-series-operator) (numeric, datetime, and timespan axes)
+- [render](https://learn.microsoft.com/en-us/kusto/query/render-operator) (terminal `linechart` and `timechart`, without options)
 - [distinct](https://learn.microsoft.com/en-us/kusto/query/distinct-operator)
 - [join](https://learn.microsoft.com/en-us/kusto/query/join-operator) (inner, innerunique, outer, semi and anti joins)
 - [print](https://learn.microsoft.com/en-us/kusto/query/print-operator)
@@ -174,6 +176,30 @@ series is limited to 1,048,576 bins.
 example, `bin(25, -10)` returns `30`. A numeric width for a datetime is in
 seconds. Unlike `bin`, `bin_at` requires a positive constant width and a
 non-null constant anchor.
+
+## Charts
+
+Paste either query into the web playground; no table import is needed:
+
+```kusto
+datatable(X:long, Y:long)[0,2, 1,5, 2,3]
+| sort by X asc
+| render linechart
+```
+
+```kusto
+datatable(T:datetime, Hits:long)[datetime(2026-01-01),2, datetime(2026-01-02),5, datetime(2026-01-04),3]
+| sort by T asc
+| render timechart
+```
+
+The web client draws one SVG line and keeps the query rows underneath. Project
+exactly two columns: numeric X (or UTC datetime X for a timechart), then
+numeric Y. Points follow query order; null or non-finite coordinates leave
+gaps. Grouping, dynamic arrays, other chart types, and `with (...)` options are
+not part of this preview. For binned time data, `summarize ... by bin(...)`
+produces the one-row-per-point shape; project the time column first.
+The native CLI accepts the same queries and returns its usual JSON rows, not an image.
 
 ## Working with nested JSON
 

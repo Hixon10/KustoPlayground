@@ -35,6 +35,10 @@ public sealed record ResultColumn(string Name, string Type);
 /// </summary>
 public sealed class ExecutionResult
 {
+    /// <summary>KQL visualization requested by a terminal render operator; the rows themselves are unchanged.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Visualization { get; init; }
+
     /// <summary>Ordered schema when requested, even if the successful query returns no rows.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<ResultColumn>? Columns { get; init; }

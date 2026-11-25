@@ -8,7 +8,7 @@ internal sealed partial class QueryEvaluator
 {
     // These service rules are stricter than the signatures in Kusto.Language. Check the
     // bound expressions, not individual rows: an invalid query still fails on an empty table.
-    private static IEnumerable<ExecutionError> ValidateServiceSemantics(KustoCode code)
+    private static IEnumerable<ExecutionError> ValidateServiceSemantics(KustoCode code, RenderOperator? finalRender)
     {
         foreach (var expression in code.Syntax.GetDescendants<Expression>())
         {
@@ -22,6 +22,11 @@ internal sealed partial class QueryEvaluator
                 InExpression membership when membership.Right.Expressions.Any(e => e.Element.ResultType is not TableSymbol && !e.Element.IsConstant) =>
                     "The scalar values on the right of in must be constants, not row columns.",
                 MakeSeriesOperator series => ValidateSeries(series),
+                RenderOperator render when render != finalRender => "render must be the final operator of the query.",
+                RenderOperator { ChartType.Text: not ("linechart" or "timechart") } render =>
+                    $"Unsupported visualization '{render.ChartType.Text}'. Use render linechart or render timechart.",
+                RenderOperator { WithClause: not null } or RenderOperator { Parameters.Count: > 0 } =>
+                    "render options are not supported. Use render linechart or render timechart without options.",
                 FunctionCallExpression { ReferencedSymbol: FunctionSymbol f } call
                     when QueryGlobals.IsBuiltInFunction(f) || QueryGlobals.IsAggregateFunction(f) => ValidateCall(call),
                 _ => null

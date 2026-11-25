@@ -172,6 +172,47 @@ public class PublishedAppTests : PageTest
     }
 
     [Test]
+    public async Task LineChartConnectsTheTypedRowsAndClearsOnTheNextQuery()
+    {
+        await AssertQuery("datatable(X:long, Y:long)[2,3, 0,2, 1,5] | sort by X asc | render linechart",
+            "X=0, Y=2", "X=1, Y=5", "X=2, Y=3");
+        var (chart, points) = await ReadChart("linechart: Y by X", 3);
+        Assert.That(points[0][0], Is.LessThan(points[2][0]));
+        Assert.That(points[1][0], Is.EqualTo((points[0][0] + points[2][0]) / 2).Within(0.01));
+        Assert.That(points[1][1], Is.LessThan(points[2][1]));
+        Assert.That(points[2][1], Is.LessThan(points[0][1]));
+        Assert.That(await chart.Locator("path.series").EvaluateAsync<double>("path => path.getTotalLength()"), Is.Positive);
+
+        await AssertQuery("print X='not numeric', Y=7 | render linechart", "X=not numeric, Y=7");
+        await Expect(chart).ToHaveCountAsync(0);
+        await Expect(Page.GetByRole(AriaRole.Status)).ToContainTextAsync("numeric X column");
+        await AssertQuery("print Y=7", "Y=7");
+        await Expect(Page.GetByRole(AriaRole.Status)).ToHaveCountAsync(0);
+    }
+
+    [Test]
+    public async Task TimeChartUsesElapsedTimeAndBreaksAtMissingMeasurements()
+    {
+        await AssertQuery("""
+            datatable(T:datetime, Y:long)[
+                datetime(2026-01-01T00:00:00.0000000Z), 2, datetime(2026-01-01T00:00:00.0000001Z), 2,
+                datetime(2026-01-01T00:00:00.0000002Z), long(null), datetime(2026-01-01T00:00:00.0000004Z), 2]
+            | render timechart
+            """, "T=2026-01-01T00:00:00.0000000Z, Y=2", "T=2026-01-01T00:00:00.0000001Z, Y=2",
+            "T=2026-01-01T00:00:00.0000002Z, Y=", "T=2026-01-01T00:00:00.0000004Z, Y=2");
+        var (chart, points) = await ReadChart("timechart: Y by T", 3);
+        Assert.That(points[1][0] - points[0][0], Is.Positive);
+        Assert.That(points[2][0] - points[0][0], Is.EqualTo(4 * (points[1][0] - points[0][0])).Within(0.01));
+        Assert.That(points.Select(p => p[1]).Distinct().Count(), Is.EqualTo(1));
+        var path = await chart.Locator("path.series").GetAttributeAsync("d");
+        Assert.That(path!.Count(c => c == 'M'), Is.EqualTo(2), "Missing values must break the line.");
+
+        await AssertQuery("print T=datetime(2026-01-01), Y=1 | take 0 | render timechart", "Empty result");
+        await Expect(chart).ToHaveCountAsync(0);
+        await Expect(Page.GetByRole(AriaRole.Status)).ToContainTextAsync("no rows");
+    }
+
+    [Test]
     public async Task SummarizePublishedTable()
     {
         await Page.GetByLabel("Option 2: CSV data as text:").FillAsync("City,Score\nOslo,2\nLima,5\nOslo,8");
@@ -195,6 +236,15 @@ public class PublishedAppTests : PageTest
         await AssertQuery(query, "Label=bucket=10");
         await AssertQuery(query + " | getschema | project ColumnName, ColumnType", "ColumnName=Label, ColumnType=string");
         await AssertQuery("print R=bin(4.5, 0.0) | project Bag=pack_all()", """Bag={"R":"NaN"}""");
+    }
+
+    private async Task<(ILocator Chart, double[][] Points)> ReadChart(string name, int count)
+    {
+        var chart = Page.GetByRole(AriaRole.Img, new() { Name = name, Exact = true });
+        await Expect(chart).ToBeVisibleAsync();
+        var points = chart.Locator("circle");
+        await Expect(points).ToHaveCountAsync(count);
+        return (chart, await points.EvaluateAllAsync<double[][]>("dots => dots.map(p => [p.cx.baseVal.value, p.cy.baseVal.value])"));
     }
 
     private async Task AssertQuery(string query, params string[] expectedRows)
