@@ -10,10 +10,10 @@ internal static class Command
         Run KQL locally using the Kusto Playground engine.
 
         kustoplayground [--help]
-        kustoplayground [-e] --query <KQL> [table inputs...]
-        kustoplayground [-e] --mcp-server [table inputs...]
+        kustoplayground --query <KQL> [table inputs...]
+        kustoplayground --mcp-server [table inputs...]
 
-        Help: -h, --help, -help         Execute: -e, --execute, -execute
+        Help: -h, --help, -help
         Choose exactly one of --query or --mcp-server. MCP serves query,
         add_table_from_json, and add_table_from_csv over stdin/stdout until
         stdin closes or Ctrl+C; logs go to stderr.
@@ -25,7 +25,7 @@ internal static class Command
         Duplicate table names are errors. Paths may be absolute or relative.
         Omit table inputs for print, datatable, or other self-contained queries.
 
-        Example: kustoplayground -e --query "print Answer=6*7"
+        Example: kustoplayground --query "print Answer=6*7"
         Example: kustoplayground --mcp-server --json-path products.json --csv-path orders.csv
         One-shot success: JSON on stdout (schema, then rows in results.items; duration in ms).
         One-shot failure: JSON on stderr; exit 1 for query/output errors, 2 for invalid input.
@@ -51,7 +51,7 @@ internal static class Command
 
         static bool IsOption(string value) => value is "--query" or "--mcp-server" or "--json" or "--csv"
             or "--json-path" or "--csv-path" or "--json-file" or "--csv-file";
-        for (int i = args[0] is "-e" or "--execute" or "-execute" ? 1 : 0; i < args.Length; i++)
+        for (int i = 0; i < args.Length; i++)
         {
             string option = args[i];
             if (!IsOption(option)) return Fail($"Unknown option: {option}.");

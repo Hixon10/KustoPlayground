@@ -23,20 +23,19 @@ The Linux binary targets glibc Linux (built on Ubuntu 24.04), not Alpine/musl.
 
 ```sh
 ./kustoplayground --help
-./kustoplayground -e --query 'print Answer=6*7'
-./kustoplayground --execute --json '{"Name":"Scores","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":7}]}' --query 'Scores | summarize Total=sum(N)'
-./kustoplayground -execute --csv 'City,Score
+./kustoplayground --query 'print Answer=6*7'
+./kustoplayground --json '{"Name":"Scores","Columns":[{"Name":"N","Type":"int"}],"Rows":[{"N":7}]}' --query 'Scores | summarize Total=sum(N)'
+./kustoplayground --csv 'City,Score
 Oslo,3
 Lima,9' --query 'Input | where Score > 5 | project City'
-./kustoplayground -e --csv-file 'data/city scores.csv' --query 'Input | where Score > 5'
-./kustoplayground -e --json-file scores.json --query 'Scores | count'
+./kustoplayground --csv-file 'data/city scores.csv' --query 'Input | where Score > 5'
+./kustoplayground --json-file scores.json --query 'Scores | count'
 ./kustoplayground --csv-path orders.csv --json-path products.json --query 'Input | join kind=inner (Products) on Sku'
 ```
 
 `kustoplayground` with no arguments, `-h`, `--help`, and `-help` all print the
 same usage and exit successfully. Otherwise choose **exactly one** of
 `--query <KQL>` (one query) or `--mcp-server` (a persistent local database).
-The execute prefix (`-e`, `--execute`, `-execute`) is optional.
 
 Repeat or mix `--json`, `--csv` (inline text), `--json-path`, and `--csv-path`
 (absolute or relative files). The existing `--json-file` and `--csv-file` names
