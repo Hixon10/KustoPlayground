@@ -169,6 +169,32 @@ The repository's **Settings > Pages > Build and deployment > Source** must be
 **GitHub Actions**. The published site is not checked into Git. No manual file
 copy or personal deployment token is needed.
 
+## Inspect the local database
+
+The browser, native CLI (`--query`), and MCP `query` tool accept the same two
+read-only management commands. Each session has one in-memory database:
+
+```kusto
+.show databases
+```
+
+```kusto
+.show database MyDatabase schema
+```
+
+The schema includes one row for the database, one for each registered table,
+and one per column in declaration order. It updates after an import, including
+an MCP import made after startup. To see just the columns and their types:
+
+```kusto
+.show database MyDatabase schema
+| where isnotempty(ColumnName)
+| project TableName, ColumnName, ColumnType
+```
+
+Other database names return an error. Creating databases, switching databases,
+and alternate schema formats such as `as json` are not supported.
+
 ## Supported String operators:
 - [contains](https://learn.microsoft.com/en-us/kusto/query/contains-operator)
 - [!contains](https://learn.microsoft.com/en-us/kusto/query/not-contains-operator)

@@ -81,6 +81,14 @@ try {
     $items = $liveJoin.structuredContent.results.items
     if ($liveJoin.isError -or $items.Count -ne 2 -or ($items[1] -join ',') -cne 'Lima,17') { throw 'Join of live and preloaded tables failed.' }
 
+    $kql = ".show database MyDatabase schema | where ColumnName in ('Price', 'Score', 'Units') | project TableName, ColumnName, ColumnType | sort by TableName asc"
+    $catalog = Invoke-Rpc 10 'tools/call' @{ name = 'query'; arguments = @{ query = $kql } }
+    $items = $catalog.structuredContent.results.items
+    if ($catalog.isError -or $items.Count -ne 4 -or ($items[1] -join ',') -cne 'Input,Score,System.Int32' -or
+        ($items[2] -join ',') -cne 'Prices,Price,System.Int32' -or ($items[3] -join ',') -cne 'UnitsByCity,Units,System.Int32') {
+        throw 'Database schema did not describe the preloaded and live-imported columns.'
+    }
+
     $process.StandardInput.Close()
     $tail = $process.StandardOutput.ReadToEndAsync()
     if (!$process.WaitForExit([int]$timeout.TotalMilliseconds)) { throw 'MCP server did not stop on stdin EOF.' }

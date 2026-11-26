@@ -56,9 +56,9 @@ internal sealed partial class QueryEvaluator
 
     private KustoCode Analyze(KustoCode code)
     {
-        var tables = _tables.Values.Select(t => new TableSymbol(t.Name, t.Schema.Values.Select(c =>
+        var tables = _catalog.Tables.Values.Select(t => new TableSymbol(t.Name, t.Schema.Values.Select(c =>
             new ColumnSymbol(c.Name, ColumnType(c.GetColumnType())))));
-        var bound = NormalizeJoinConditions(code).Analyze(QueryGlobals.WithDatabase(new DatabaseSymbol("Playground", tables)));
+        var bound = NormalizeJoinConditions(code).Analyze(QueryGlobals.WithDatabase(new DatabaseSymbol(DatabaseCatalog.Name, tables)));
         if (bound.Syntax.GetFirstDescendant<UnionOperator>() is not null) bound = BindViewUnions(bound);
         return BindSeriesNames(bound);
     }

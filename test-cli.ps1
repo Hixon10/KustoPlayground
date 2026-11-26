@@ -18,6 +18,11 @@ try {
             $help -notmatch '--json-file' -or $help -notmatch '--csv-file') { throw 'Incomplete help.' }
         if ((& $exe | Out-String) -cne $help) { throw 'No arguments should print the same help as --help.' }
 
+        $catalog = & $exe --query '.show databases | where IsCurrent | project DatabaseName' | ConvertFrom-Json -AsHashtable
+        if ($catalog.status -ne 200 -or $catalog.results.items.Count -ne 2 -or $catalog.results.items[1][0] -cne 'MyDatabase') {
+            throw 'The native CLI did not report MyDatabase as its current database.'
+        }
+
         $definition = '{"Name":"Orders","Columns":[{"Name":"Items","Type":"dynamic"}],"Rows":[{"Items":[{"n":2},{"n":5}]},{"Items":[]}]}'
         $query = 'Orders | mv-expand Items | summarize Total=sum(tolong(Items.n))'
         $json = & $exe -e --json $definition --query $query | ConvertFrom-Json -AsHashtable

@@ -7,21 +7,28 @@ using QueryRow = System.Collections.Generic.Dictionary<string, object?>;
 
 namespace KustoPlayground.Core;
 
-internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> tables)
+internal sealed partial class QueryEvaluator(DatabaseCatalog catalog)
 {
-    private readonly IReadOnlyDictionary<string, Table> _tables = tables;
+    private readonly DatabaseCatalog _catalog = catalog;
     private readonly DateTime _queryTime = DateTime.UtcNow;
     private readonly ImmutableDictionary<string, Binding> _bindings = ImmutableDictionary<string, Binding>.Empty;
     private readonly Dictionary<Expression, object?> _cache = [];
 
     internal ExecutionResult Execute(string query, bool includeSchema)
     {
-        var code = Analyze(KustoCode.Parse(query));
+        var code = KustoCode.Parse(query);
+        if (code.Syntax is CommandBlock commandBlock)
+        {
+            if (ValidateCommand(code, commandBlock, out var commandText) is { } error)
+                return new ExecutionResult { ExecutionErrors = [error] };
+            if (commandText is not null) code = KustoCode.Parse(commandText, code.Globals);
+        }
+        code = Analyze(code);
         var errors = code.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error && !IsServiceCompatible(code, d))
             .Select(d => new ExecutionError { Code = d.Code, Description = d.Message }).ToList();
         if (errors.Count != 0) return new ExecutionResult { ExecutionErrors = errors };
-        if (code.Syntax is not QueryBlock block || block.Statements.Count == 0 ||
-            block.Statements[^1].Element is not ExpressionStatement final)
+        var statements = code.Syntax switch { QueryBlock q => q.Statements, CommandBlock c => c.Statements, _ => null };
+        if (statements is not { Count: > 0 } || statements[^1].Element is not ExpressionStatement final)
         {
             throw new ArgumentException("A query must end with a tabular expression.", nameof(query));
         }
@@ -35,7 +42,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
         errors.AddRange(ValidateServiceSemantics(code, render));
         if (errors.Count != 0) return new ExecutionResult { ExecutionErrors = errors };
 
-        var scope = BindStatements(block.Statements.Take(block.Statements.Count - 1).Select(s => s.Element));
+        var scope = BindStatements(statements.Take(statements.Count - 1).Select(s => s.Element));
         scope.ValidateConstantArguments(data);
         var rows = scope.ExecuteExpression(data).Select(r => r.AsReadOnly()).ToList();
         return new ExecutionResult
@@ -43,7 +50,7 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
             ResultRows = rows,
             Visualization = render?.ChartType.Text,
             Columns = includeSchema ? scope.DescribeColumns(data,
-                block.GetFirstDescendant<GetSchemaOperator>(op => op.KindParameter is null)).ToArray() : null
+                code.Syntax.GetFirstDescendant<GetSchemaOperator>(op => op.KindParameter is null)).ToArray() : null
         };
     }
 
@@ -71,6 +78,8 @@ internal sealed partial class QueryEvaluator(IReadOnlyDictionary<string, Table> 
     {
         switch (expr)
         {
+            case CustomCommand command:
+                return ReadCatalog(command);
             case DataTableExpression data:
                 return ReadDataTable(data);
             case NameReference nameRef:

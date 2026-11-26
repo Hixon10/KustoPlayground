@@ -97,6 +97,18 @@ public class PublishedAppTests : PageTest
     }
 
     [Test]
+    public async Task DiscoverDatabaseAndImportedSchemaInPublishedWasm()
+    {
+        await AssertQuery(".show databases | where IsCurrent | project DatabaseName", "DatabaseName=MyDatabase");
+        await Page.GetByLabel("Option 2: CSV data as text:").FillAsync("City,Score\nOslo,2");
+        await Page.GetByLabel("Table name:").FillAsync("Scores");
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Add Table" }).ClickAsync();
+        await Expect(Page.GetByText("CSV table \"Scores\" added successfully.")).ToBeVisibleAsync();
+        await AssertQuery(".show database MyDatabase schema | where isnotempty(ColumnName) | project TableName, ColumnName, ColumnType",
+            "TableName=Scores, ColumnName=City, ColumnType=System.String", "TableName=Scores, ColumnName=Score, ColumnType=System.Int32");
+    }
+
+    [Test]
     public async Task ImportJsonAndQuery()
     {
         await Page.GetByRole(AriaRole.Button, new() { Name = "JSON" }).ClickAsync();

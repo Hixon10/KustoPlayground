@@ -15,7 +15,7 @@ internal sealed partial class QueryEvaluator
     private sealed record FunctionBinding(FunctionDeclaration Declaration, QueryEvaluator Closure) : Binding;
 
     private QueryEvaluator(QueryEvaluator parent, ImmutableDictionary<string, Binding> bindings, bool functionCall = false)
-        : this(parent._tables)
+        : this(parent._catalog)
     {
         _bindings = bindings;
         _queryTime = parent._queryTime;
@@ -63,7 +63,7 @@ internal sealed partial class QueryEvaluator
             if (binding is FunctionBinding udf) return CallTableFunction(udf, reference, []);
             throw new ArgumentException($"{name} is not a table.");
         }
-        if (!_tables.TryGetValue(name, out var stored)) throw new ArgumentException($"Unknown table: {name}");
+        if (!_catalog.Tables.TryGetValue(name, out var stored)) throw new ArgumentException($"Unknown table: {name}");
         // Storage distinguishes a missing cell for validation and import. KQL strings have no null value.
         return stored.Rows.Select(row => stored.Schema.Values.ToDictionary(c => c.Name,
             c => row._values[c.Name] ?? (c.GetColumnType() == typeof(string) ? string.Empty : null), StringComparer.Ordinal));

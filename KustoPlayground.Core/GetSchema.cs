@@ -23,17 +23,19 @@ internal sealed partial class QueryEvaluator
             yield return new QueryRow
             {
                 ["ColumnName"] = column.Name, ["ColumnOrdinal"] = ordinal++,
-                ["DataType"] = column.Type switch
-                {
-                    "bool" => "System.SByte", "int" => "System.Int32", "long" => "System.Int64",
-                    "real" => "System.Double", "decimal" => "System.Data.SqlTypes.SqlDecimal", "string" => "System.String",
-                    "datetime" => "System.DateTime", "timespan" => "System.TimeSpan", "guid" => "System.Guid",
-                    "dynamic" => "System.Object", _ => throw new NotSupportedException($"Unknown schema type: {column.Type}")
-                },
+                ["DataType"] = SchemaDataType(column.Type),
                 ["ColumnType"] = column.Type
             };
         }
     }
+
+    private static string SchemaDataType(string type) => type switch
+    {
+        "bool" => "System.SByte", "int" => "System.Int32", "long" => "System.Int64",
+        "real" => "System.Double", "decimal" => "System.Data.SqlTypes.SqlDecimal", "string" => "System.String",
+        "datetime" => "System.DateTime", "timespan" => "System.TimeSpan", "guid" => "System.Guid",
+        "dynamic" => "System.Object", _ => throw new NotSupportedException($"Unknown schema type: {type}")
+    };
 
     private IEnumerable<ResultColumn> DescribeColumns(Expression expression, GetSchemaOperator? schemaOperator)
     {
